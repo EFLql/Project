@@ -23,6 +23,7 @@ public:
        void init(EventBase* evb, int fd);
        void handerReady() override;
        void consumerUntilDrainned();
+       virtual void messageAvailable(MessageT&& msg) = 0;
        void startConsuming(EventBase* evb, NotificationQueue* queue)
        {
            init(evb, queue);
@@ -340,19 +341,38 @@ bool NotificationQueue<MessageT>::Consumer::consumeUntilDrained()
     }
     return true;
 }
+
 template<typename MessageT>
 void NotificationQueue<MessageT>::Consumer::consumeMessages(bool isDrain)
 {
-    uint32_t numProcess = 0;
+    uint32_t numProcessed = 0;
     while(true)
     {
-        
-        if(queue_->empty())
+        if(queue_ == NULL)
         {
             return;
         }
 
+        queue_->spinLock_.lock(); 
+        if(queue_->queue_.empty())
+        {
+            return;
+        }
+        MessageT msg(queue_->queue_.front());
+        queue_->queue_.pop_front();
+        numProcessed ++;
+        bool wasEmpty = queue_->queue_.empty();
+        queue_->spinlock_.unlock();
 
+        messageAvailable(std::move(msg));
+        if(!isDrain && numProcessed >= maxReadAtOnce_)
+        {
+            return;
+        }
+        if(wasEmpty)
+        {
+            return;
+        }
     }
 }
 } //libext
