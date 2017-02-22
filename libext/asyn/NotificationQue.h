@@ -16,7 +16,7 @@ public:
     class Consumer : private EventHandler
     {
     public:
-        enum : int32_t { kDefaultMaxReadAtOnce = 10;}
+        enum : int32_t { kDefaultMaxReadAtOnce = 10}
         Consumer() : maxReadAtOnce_(kDefaultMaxReadAtOnce) {}
        ~Consumer() {}
 
@@ -27,7 +27,7 @@ public:
        void startConsuming(EventBase* evb, NotificationQueue* queue)
        {
            init(evb, queue);
-           registerHandler(READ | PERSIST);
+           registHandler(READ | PERSIST);
        }
        void stopConsuming()
        {
@@ -154,12 +154,12 @@ private:
     NotificationQue& operator= (const NotificationQue& ) = delete; 
     bool checkDraining()
     {
-        if(drainning_)
+        if(draining_)
         {
             //LOG_ERR
             std::cout<<"error"<<std::endl;
         }
-        return drainning_;
+        return draining_;
     }
     bool checkQuesize(uint32_t maxSize)
     {
@@ -271,6 +271,19 @@ private:
         signal_ = false;
     }
 
+    void syncSignalAndQueue()
+    {
+        libext::SpinLockGuard g(spinLock_);
+        if(queue_.empty())
+        {
+            drainSignalsLocked();//消费掉eventfd_上的事件，避免libevent一直通知消费者消费
+        }
+        else
+        {
+            ensureSignalLocked();//否则继续通知消费者消费,属于消费值达到maxReadAtOnce_退出消费循环的条件
+        }
+    }
+
 private:
     std::dequeue<MessageT> queue_;
     pid_t pid_;//用来记录对象在哪个进程里面创建的
@@ -278,6 +291,7 @@ private:
     int pipefds_[2];
     uint32_t advisoryMaxQueueSize_;
     bool signal_;//唤醒信号
+    bool draining_;
     uint32_t numActiveConsumers_;
     uint32_t numConsumers_;
     SpinLock spinlock_;
@@ -329,15 +343,15 @@ bool NotificationQueue<MessageT>::Consumer::consumeUntilDrained()
     
     {
         libext::SpinLockGuard g(queue_->spinLock_);
-        if(queue_->drainning_ == true) return false;
-        queue_->drainning_ = true;
+        if(queue_->draining_ == true) return false;
+        queue_->draining_ = true;
     }
 
     consumeMessages(true); 
     
     {
         libext::SpinLockGuard g(queue_->spinLock_);
-        queue_->drainning_ = false;
+        queue_->draining_ = false;
     }
     return true;
 }
@@ -350,29 +364,41 @@ void NotificationQueue<MessageT>::Consumer::consumeMessages(bool isDrain)
     {
         if(queue_ == NULL)
         {
-            return;
+            break;
         }
 
-        queue_->spinLock_.lock(); 
-        if(queue_->queue_.empty())
         {
-            return;
+
+            libext::SpinLockGuard g(queue_->spinLock_);
+            if(queue_->queue_.empty())
+            {
+                break;
+            }
+            MessageT msg(queue_->queue_.front());
+            queue_->queue_.pop_front();
+            numProcessed ++;
+            //由于消息会一直被libevent发出通知消费者，当isDrain为ture时出现总是消耗不完的情况发生
+            //所以这里当回调函数执行前队列为空时为准判断队列是否消耗完全
+            bool wasEmpty = queue_->queue_.empty();
         }
-        MessageT msg(queue_->queue_.front());
-        queue_->queue_.pop_front();
-        numProcessed ++;
-        bool wasEmpty = queue_->queue_.empty();
-        queue_->spinlock_.unlock();
 
         messageAvailable(std::move(msg));
+        
         if(!isDrain && numProcessed >= maxReadAtOnce_)
         {
-            return;
+            break;
         }
         if(wasEmpty)
         {
-            return;
+            break;
         }
+    }
+    //退出循环的可能有：1.queue_为空指针即中途调用了stopConsuming函数停止消费
+    //2.队列元素被消费完；3.消费值达到maxReadAtOnce
+    //对于第2中情况当队列为空时需要通知其他消费者停止消费
+    if(queue_)
+    {
+        queue_->syncSignalAndQueue();
     }
 }
 } //libext

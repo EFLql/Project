@@ -15,19 +15,19 @@ class AsyncServerSocket
 {
 public:
     AsyncServerSocket();
-    AsyncServerSocket(libext::EventBase* env);
+    AsyncServerSocket(libext::EventBase* evb);
     ~AsyncServerSocket();
 
     int createSocket();
     void bind(libext::SocketAddr);
     void listen(int backlog);
     void startAccepting();
-    void addAcceptCB(AcceptCallback* callback, libext::EventBase* env);
-    void removeAcceptCB(AcceptCallback* callback, libext::EventBase* env);
+    void addAcceptCB(AcceptCallback* callback, libext::EventBase* evb);
+    void removeAcceptCB(AcceptCallback* callback, libext::EventBase* evb);
     void setReusePortEnable(bool reuse);
     EventBase* getEventBase()
     {
-        return env_;
+        return evb_;
     }
 
     //lql-need modify
@@ -43,8 +43,8 @@ public:
     class RemoteAcceptor : public libext::NotificationQueue<QueueMessage>::consumer
     {
     public:
-        void start(libext::EventBase* env, int maxInQueue);
-        void stop(libext::EventBase* env); 
+        void start(libext::EventBase* evb, int maxInQueue);
+        void stop(libext::EventBase* evb); 
         virtual void messageAvailable(QueueMessage msg);
     private:
         AcceptCallback* callback_;
@@ -55,29 +55,29 @@ public:
     //lql-need modify
     struct CallbackInfo
     {
-        CallbackInfo(AcceptCallback* tcallback, libext::EventBase* tenv) 
-            : callback(tcallback), env(tenv){}
+        CallbackInfo(AcceptCallback* tcallback, libext::EventBase* tevb) 
+            : callback(tcallback), evb(tevb){}
         AcceptCallback* callback;
-        EventBase* env;
+        EventBase* evb;
         RemoteAcceptor* consumer;
     };
 
     class ServerEventHandler : public libext::EventHandler
     {
     public:
-        ServerEventHandler(libext::EventBase* env, int socket, AsyncServerSocket* parent) :
-            libext::EventHandler(env, socket),
+        ServerEventHandler(libext::EventBase* evb, int socket, AsyncServerSocket* parent) :
+            libext::EventHandler(evb, socket),
             socket_(socket),
-            env_(env),
+            evb_(evb),
             parent_(parent)
         {}
-
+        void handerReady() override;
         int socket_;
         AsyncServerSocket* parent_;
-        libext::EventBase* env;
+        libext::EventBase* evb_;
     };
 private:
-    libext::EventBase* env_;
+    libext::EventBase* evb_;
     std::vector<ServerEventHandler> sockets_;
     std::vector<CallbackInfo> callbacks_;
 };

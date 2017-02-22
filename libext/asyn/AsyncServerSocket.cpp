@@ -6,8 +6,8 @@ AsyncServerSocket::AsyncServerSocket()
 {
 }
 
-AsyncServerSocket::AsyncServerSocket(libext::EventBase* env) :
-env_(env)
+AsyncServerSocket::AsyncServerSocket(libext::EventBase* evb) :
+evb_(evb)
 {
 }
 
@@ -85,30 +85,31 @@ void AsyncServerSocket::startAccepting()
     //对每个eventhandler注册事件
     for(auto& handler : socket_)
     {
+        //为serversocket注册事件，后续socket的所有事件均会通知到hander
         handler.registHandler(EventHandler::READ | EventHandler::PERSIST, false);
     }
 }
 
-void AsyncServerSocket::addAcceptCB(AcceptCallback* callback, libext::EventBase* env)
+void AsyncServerSocket::addAcceptCB(AcceptCallback* callback, libext::EventBase* evb)
 {
-    if(!env)
+    if(!evb_)
     {
-        env = env_;
+        evb = evb_;
     }
 
-    callbacks_.push_back(callback, env); 
-    RemoteAcceptor acceptor = new RemoteAcceptor(callback, env);
-    acceptor->start(env, maxInQueue);
+    callbacks_.push_back(callback, evb); 
+    RemoteAcceptor acceptor = new RemoteAcceptor(callback, evb);
+    acceptor->start(evb, maxInQueue);
 }
 
-void AsyncServerSocket::removeAcceptCB(AcceptCallback* callback, libext::EventBase* env)
+void AsyncServerSocket::removeAcceptCB(AcceptCallback* callback, libext::EventBase* evb)
 {
     if(callbacks_.empty()) return;
 
     std::vector<CallbackInfo>::iterator itr = callbacks_.begin();
     while(itr != callbacks_.end())
     {
-        if(itr.callback == callback && itr.env == env)
+        if(itr.callback == callback && itr.evb == evb)
         {
             callbacks_.erase(itr);
             break;
@@ -131,19 +132,19 @@ void AsyncServerSocket::setReusePortEnable(bool reuse)
 }
 
 //////////////////////////////////////
-void AsyncServerSocket::RemoteAcceptor::start(libext::EventBase* env, int maxInQueue)
+void AsyncServerSocket::RemoteAcceptor::start(libext::EventBase* evb, int maxInQueue)
 {//lql-伪代码记录流程，后续需要修改
     //初始化自己的队列,当有连接请求时才能塞到其任务队列进行消费
     queue_.setMaxSize(maxInQueue);
 
     //往队列里面投递任务
-    env->run([](){
+    evb->runInEventBase([](){
             //开始消费queue_里面的任务
-            this->startConsume(env, &queue_);
+            this->startConsume(evb, &queue_);
             });
 }
 
-void AsyncServerSocket::RemoteAcceptor::stop(libext::EventBase* env)
+void AsyncServerSocket::RemoteAcceptor::stop(libext::EventBase* evb)
 {
 
 }

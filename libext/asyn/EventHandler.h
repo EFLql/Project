@@ -24,7 +24,6 @@ public:
     void registHandler(int32_t eventtype);
     bool EventHandler::isHandlerRegisted();
     void EventHandler::unregisterHandler();
-   
     void libeventCallback(int socket, uint32_t event, void* arg); 
     virtual void handlerReady() = 0; 
 private:
