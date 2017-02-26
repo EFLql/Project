@@ -1,5 +1,8 @@
 #pragma once
+#include <libext/lock/SpinLockImpl.h>
 
+namespace libext
+{
 typedef SpinLockPthreadImpl SpinLock;
 
 template<typename LOCK>
@@ -10,7 +13,7 @@ public:
     {
         lock_.lock();
     }
-    ~SpinLockPthreadImpl()
+    ~SpinLockGuardImpl()
     {
         lock_.unlock();
     }
@@ -19,3 +22,5 @@ private:
 };
 
 typedef SpinLockGuardImpl<SpinLock> SpinLockGuard;
+
+} //libext

@@ -1,5 +1,7 @@
 #pragma once
-
+#include <libext/bootstrap/acceptor/Acceptor.h>
+#include <libext/ThreadPool/ThreadPoolExecutor.h>
+#include <libext/bootstrap/ServerSocketFactory.h>
 namespace libext
 {
 class ServerAcceptor : public Acceptor
@@ -11,7 +13,7 @@ class ServerAcceptorFactory : public AcceptorFactory
 {
 };
 
-class ServerWorkerPool : public ThreadPoolExecutor::Oberver
+class ServerWorkerPool : public ThreadPoolExecutor::Observer
 {
 public:
     ServerWorkerPool(const ServerWorkerPool& that) = delete;
@@ -30,6 +32,7 @@ public:
     {
         threadStoped(thread);
     }
+    void forEachWork(Func f);
 
 private:
     //c++11 using could replace typedef

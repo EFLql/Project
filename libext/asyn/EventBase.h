@@ -1,4 +1,7 @@
 #pragma once
+#include <libext/asyn/NotificationQue.h>
+#include <libext/lock/SpinLock.h>
+#include <vector>
 
 namespace libext
 {
@@ -13,17 +16,21 @@ public:
     void loopForever();
     //将任务塞到线程队列执行
     void runInEventBaseThread(Func fun);
-    //线程循环主体
-    void loopBody();
     bool isInEventBaseThread();
 private:
     bool bstop_;
     pid_t pid_;
-    //lql-need modify
+    void runInLoop(Func fun);
+    bool isRuningInEventBase();
+    void runCallback();
+    //线程循环主体
+    void loopBody();
     //线程队列
     NotificationQueue<Func> queue_;
-    
+    std::vector<Func> callbacks_;  
     struct event_base* base_;
+    
+    SpinLock spinLock_;
 };
 
 

@@ -2,27 +2,21 @@
 #pragma once
 #include <pthread.h>
 
+namespace libext
+{
 class SpinLockPthreadImpl
 {
 public:
     SpinLockPthreadImpl()
     {
-        if(0 == pthread_spin_init(&lock_)
-        {
-            return true;
-        }
-        return false;
+        pthread_spin_init(&lock_, PTHREAD_PROCESS_PRIVATE);
     }
     ~SpinLockPthreadImpl()
     {
-        if(0 == pthread_spin_destroy(&lock_))
-        {
-            return true;
-        }
-        return false;
+        pthread_spin_destroy(&lock_);
     }
 
-    inline void lock() const
+    inline void lock() 
     {
         if(0 == pthread_spin_lock(&lock_) )
         {
@@ -30,7 +24,7 @@ public:
         }
         return false;
     }
-    inline bool trylock() const
+    inline bool trylock() 
     {
         int rc = pthread_spin_trylock(&lock_);
         if(rc == 0)
@@ -39,15 +33,13 @@ public:
         }
         return false; 
     }
-    inline void unlock() const
+    inline void unlock() 
     {
-        if(0 == pthread_spin_unlock(&lock_) )
-        {
-            return true;
-        }
-        return false;
+        pthread_spin_unlock(&lock_); 
     }
 
 private:
     pthread_spinlock_t lock_;
 };
+
+} //libext

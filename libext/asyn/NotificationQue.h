@@ -1,10 +1,12 @@
 #pragma once
-#include "EventHandler.h"
-#include "lock/SpinLock.h"
-#include "FileUtil.h"
+#include <libext/asyn/EventBase.h>
+#include <libext/asyn/EventHandler.h>
+#include <libext/lock/SpinLock.h>
+#include <libext/FileUtil.h>
 #include <errno.h>
 #include <sys/eventfd.h>
 #include <fcntl.h>
+#include <queue>
 
 namespace libext
 {
@@ -16,7 +18,7 @@ public:
     class Consumer : private EventHandler
     {
     public:
-        enum : int32_t { kDefaultMaxReadAtOnce = 10}
+        enum : int32_t { kDefaultMaxReadAtOnce = 10};
         Consumer() : maxReadAtOnce_(kDefaultMaxReadAtOnce) {}
        ~Consumer() {}
 
@@ -48,6 +50,9 @@ public:
        } 
     private:
        void consumeMessages(bool isDrain);
+    private:
+       int maxReadAtOnce_;
+       NotificationQueue* queue_;
     };
 
     enum FdType
@@ -93,7 +98,7 @@ public:
                     break;
                 }
                 flags = true;
-            }while(0)
+            }while(0);
             if(!flags)
             {
                 ::close(pipefds_[0]);
@@ -101,7 +106,7 @@ public:
             }
         }
     }
-    ~NotificationQue()
+    ~NotificationQueue()
     {
         if(eventfd_ >= 0)
         {
@@ -150,8 +155,8 @@ public:
     }
 private:
     //forbidden copy constructor and assignment operator
-    NotificationQue(const NotificationQue& ) = delete;
-    NotificationQue& operator= (const NotificationQue& ) = delete; 
+    NotificationQueue(const NotificationQue& ) = delete;
+    NotificationQueue& operator= (const NotificationQue& ) = delete; 
     bool checkDraining()
     {
         if(draining_)

@@ -41,15 +41,15 @@ public:
     class Observer
     {
     public:
-        virtual threadStarted(ThreadPtr thread) = 0;
-        virtual threadStoped(ThreadPtr thread) = 0;
-        virtual threadNotYetStoped(ThreadPtr thread) = 0;
+        virtual void threadStarted(ThreadPtr thread) = 0;
+        virtual void threadStoped(ThreadPtr thread) = 0;
+        virtual void threadNotYetStoped(ThreadPtr thread) = 0;
 
         virtual ~Observer() = default;
-    }
+    };
 
-    addObserver(std::shared_ptr<Observer> o);
-    removeObserver(std::shared_ptr<Observer> o);
+    void addObserver(std::shared_ptr<Observer> o);
+    void removeObserver(std::shared_ptr<Observer> o);
 
 private:
 	void addThreads(int n);

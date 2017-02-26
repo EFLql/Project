@@ -96,10 +96,12 @@ void AsyncServerSocket::addAcceptCB(AcceptCallback* callback, libext::EventBase*
     {
         evb = evb_;
     }
-
-    callbacks_.push_back(callback, evb); 
-    RemoteAcceptor acceptor = new RemoteAcceptor(callback, evb);
+    
+    CallbackInfo info(callback, evb);
+    RemoteAcceptor* acceptor = new RemoteAcceptor(callback, evb);
     acceptor->start(evb, maxInQueue);
+    info->consumer = acceptor; 
+    callbacks_.push_back(info);
 }
 
 void AsyncServerSocket::removeAcceptCB(AcceptCallback* callback, libext::EventBase* evb)
@@ -131,16 +133,86 @@ void AsyncServerSocket::setReusePortEnable(bool reuse)
     }    
 }
 
+void AsyncServerSocket::handlerReady()
+{
+    socketaddr addr;
+    int addrlen = sizeof(addr.getSocketAddr());
+    int clientSocket = accept(sockets_[0].socket, 
+            (struct socketaddr*)addr.getSocketAddr(), &addrlen);
+    
+    if(clientSocket >= 0)
+    {
+        //constrol
+
+        dispatchSocket(clientSocket, addr);
+    }
+    else
+    {
+        //constrol....
+        //
+
+        dispatchError(clientSocket, addr);
+    }
+}
+
+void AsyncServerSocket::dispatchSocket(int socket, const SocketAddr& addr)
+{
+    CallbackInfo* info = nextCallback();//调度处理线程
+    
+
+    QueueMessage msg;
+    msg.type = MSG_NEW_CONN;
+    msg.socket = socket;
+    msg.addr = addr;
+    
+    while(true)
+    {
+        CHECK(info);
+        CHECK(info->consumer);
+        
+        if(info->consumer->queue_.tryPutMessage(msg))
+        {
+            return;
+        }
+
+        info = nextCallback();
+    }
+}
+
+void AsyncServerSocket::dispatchError(int socket, const SocketAddr& addr)
+{
+    CallbackInfo* info = nextCallback();//调度处理线程
+    
+
+    QueueMessage msg;
+    msg.type = MSG_ERROR;
+    msg.socket = socket;
+    msg.addr = addr;
+    
+    while(true)
+    {
+        CHECK(info);
+        CHECK(info->consumer);
+        
+        if(info->consumer->queue_.tryPutMessage(msg))
+        {
+            return;
+        }
+
+        info = nextCallback();
+    }
+}
+
 //////////////////////////////////////
 void AsyncServerSocket::RemoteAcceptor::start(libext::EventBase* evb, int maxInQueue)
-{//lql-伪代码记录流程，后续需要修改
+{
     //初始化自己的队列,当有连接请求时才能塞到其任务队列进行消费
-    queue_.setMaxSize(maxInQueue);
+    queue_.setQueueMaxSize(maxInQueue);
 
     //往队列里面投递任务
-    evb->runInEventBase([](){
+    evb->runInEventBaseThread([](){
             //开始消费queue_里面的任务
-            this->startConsume(evb, &queue_);
+            this->startConsuming(evb, &queue_);
             });
 }
 

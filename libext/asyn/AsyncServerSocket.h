@@ -1,8 +1,8 @@
 #pragma once
-#include "Acceptor.h"
-#include "EventBase.h"
-#include "EventHandler"
-
+#include <libext/asyn/EventBase.h>
+#include <libext/asyn/EventHandler>
+#include <SocketAddr.h>
+#include <libext/asyn/NotificationQue.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <string.h>
@@ -25,11 +25,24 @@ public:
     void addAcceptCB(AcceptCallback* callback, libext::EventBase* evb);
     void removeAcceptCB(AcceptCallback* callback, libext::EventBase* evb);
     void setReusePortEnable(bool reuse);
+    void handerReady(); 
     EventBase* getEventBase()
     {
         return evb_;
     }
 
+private:
+    enum MessageType
+    {
+        MSG_NEW_CONN,
+        MSG_ERROR
+    };
+    struct QueueMessage
+    {
+        MessageType type;
+        int socket;
+        SocketAddr addr;
+    };
     //lql-need modify
     class ConnectionEventCallback
     {
@@ -71,15 +84,26 @@ public:
             evb_(evb),
             parent_(parent)
         {}
-        void handerReady() override;
+        void handerReady() override
+        {
+            parent_->handerReady();
+        }
         int socket_;
         AsyncServerSocket* parent_;
         libext::EventBase* evb_;
     };
 private:
+    void dispatchSocket(int socket, const SocketAddr& addr) const;
+    void dispatchError(int socket, const SocketAddr& addr) const;
+    CallbackInfo* nextCallback()
+    {
+        return callbacks_[callbackIndex_ ++];
+    }
+private:
     libext::EventBase* evb_;
     std::vector<ServerEventHandler> sockets_;
     std::vector<CallbackInfo> callbacks_;
+    int callbackIndex_{0};
 };
 
 }//libext

@@ -1,6 +1,6 @@
 #pragma once
-#include "asyn/AsyncSocketBase.h"
-#include "EventBaseManger.h"
+#include <libext/asyn/AsyncSocketBase.h>
+#include <libext/EventBaseManger.h>
 
 namespace libext
 {
@@ -30,7 +30,6 @@ public:
             libext::SocketAddr& addr, 
             int backlog, bool reuse)
     {
-        //lql-need modify
         //EventBaseManager是一个管理EventBase对象的类
         //负责根据不同的线程返回线程私有的Eventbase对象
         EventBase* env = EventBaseManager::getInstanse()->getEventBase();
@@ -48,14 +47,12 @@ public:
             std::shared_ptr<AsyncSocketBase> socket,
             Acceptor* callback, EventBase env)
     {
-        //lql-need modify
         socket->addAcceptCB(callback, env);
     }
     virtual removeAcceptCB(
             std::shared_ptr<AsyncSocketBase> socket,
             Acceptor* callback, EventBase* env)
     {
-        //lql-need modfiy
         socket->removeAcceptCB(callback, env);
     }
 };

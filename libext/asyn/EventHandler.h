@@ -1,4 +1,7 @@
 #pragma once
+#include <libext/asyn/EventBase.h>
+
+#include <event.h>
 
 namespace libext
 {
@@ -12,7 +15,7 @@ public:
         READ = EV_READ,
         WRITE = EV_WRITE,
         READ_WRITE = EV_READ | EV_WRITE,
-        PERSIST = EV_PERSIS,
+        PERSIST = EV_PERSIST,
     };
     EventHandler(EventBase* evb, int socket);
     virtual ~EventHandler() {}
@@ -22,8 +25,8 @@ public:
     void attachEventBase(EventBase* evb);
     void dettachEventBase(EventBase* evb);
     void registHandler(int32_t eventtype);
-    bool EventHandler::isHandlerRegisted();
-    void EventHandler::unregisterHandler();
+    bool isHandlerRegisted();
+    void unregisterHandler();
     void libeventCallback(int socket, uint32_t event, void* arg); 
     virtual void handlerReady() = 0; 
 private:

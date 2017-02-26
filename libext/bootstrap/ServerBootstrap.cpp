@@ -33,7 +33,6 @@ void ServerBootstrap::bind(libext::SocketAddr& addr)
     //创建新的socket的过程 
     auto startupSocket = [&]()
     {
-        //lql-need modify
         auto socket = SocketFactory_->newSocket(addr, reusePort);//create a new obj and bind、listen
         sock_lock.lock();
         sockets_.push(socket);
@@ -51,9 +50,8 @@ void ServerBootstrap::bind(libext::SocketAddr& addr)
     //注册过程也在accept_group线程池里面完成，主线程不阻塞
     for(auto& socket : sockets)
     {
-        //lql-need modify
         workFactory_->forEachWork([socket](Acceptor* work){
-               socket->getEventBase()->run([socket]() {
+               socket->getEventBase()->runInEventBaseThread([socket]() {
                    socketFactory_->addAcceptCB(socket, work, work->getEventBase())
                    })
                });
@@ -96,15 +94,13 @@ void ServerBootstrap::group(std::shared_ptr<libext::ThreadPoolExecutor> io_group
 //////////////////////////////////////////////////////////
 void ServerWorkerPool::threadStarted(ThreadPtr thread)
 {
-    //lql-need modify
     worker = acceptorFactory_->newAcceptor(exec_->getEventBase() );
     worker_->insert(make_pair(thread, acceptor));
     
     //将新生成的worker对象注册到所有的AsyncSocketBase对象里面
     for(auto& socket : sockets_)
     {
-        //lql-need modify
-        socket->getEventBase()->run([](){
+        socket->getEventBase()->runInEventBaseThread([](){
                 socketFactory_->addAcceptCB(socket, worker_, work->getEventBase())
                 });
     }
@@ -114,5 +110,13 @@ void ServerWorkerPool::threadStarted(ThreadPtr thread)
 void ServerWorkerPool::threadStoped(ThreadPtr thread)
 {
      
+}
+
+void ServerWorkerPool::forEachWork(Func f)
+{
+    for(auto& woker : *worker_)
+    {
+        f(woker.second.get()); 
+    }
 }
 
