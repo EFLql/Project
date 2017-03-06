@@ -2,12 +2,11 @@
 #include "ThreadPoolExecutor.h"
 #include <unistd.h>
 
-using libext::ThreadPoolExecutor;
-using libext::PoolStats;
-
+namespace libext
+{
 ThreadPoolExecutor::ThreadPoolExecutor(int numthreads)
 {
-    setThreads(n);
+    setThreads(numthreads);
 }
 
 
@@ -145,4 +144,7 @@ libext::ThreadPtr ThreadPoolExecutor::pickThread()
     static int s = 0;
     s = (s + 1) % vectThreads_.size();
     return vectThreads_[s];
-} 
+}
+
+
+} //libext

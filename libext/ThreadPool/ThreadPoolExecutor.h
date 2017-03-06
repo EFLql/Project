@@ -21,19 +21,22 @@ class ThreadPoolExecutor
 {
 public:
 	ThreadPoolExecutor(int numthreads);
-	~ThreadPoolExecutor();
+	virtual ~ThreadPoolExecutor();
 
 	void setThreads(int n);
 	void stopThreads(int n);
-	
+    int32_t numThreads() const
+    {
+        return vectThreads_.size();
+    }    
 	void stopAllThreads();
 
 	PoolStats getPoolStats();
 
 	void addTask(libext::Func fun, libext::Func expireCallback);
 	void runTask(libext::TaskPtr task);
-
-	void threadRun(libext::ThreadPtr thread);
+    
+	virtual void threadRun(libext::ThreadPtr thread);
 
     ThreadPtr pickThread();
 
@@ -48,8 +51,8 @@ public:
         virtual ~Observer() = default;
     };
 
-    void addObserver(std::shared_ptr<Observer> o);
-    void removeObserver(std::shared_ptr<Observer> o);
+    virtual void addObserver(std::shared_ptr<Observer> o) {}
+    virtual void removeObserver(std::shared_ptr<Observer> o) {}
 
 private:
 	void addThreads(int n);
