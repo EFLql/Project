@@ -13,7 +13,7 @@ public:
     }
     ~Semaphore()
     {
-        sem_destory(&sem_);
+        sem_destroy(&sem_);
     }
 
     void post()
@@ -27,7 +27,7 @@ public:
     }
     int getSemVal(int* pRet)
     {
-        return sem_getvalue(pRet);
+        return sem_getvalue(&sem_, pRet);
     }
 private:
     sem_t sem_;

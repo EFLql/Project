@@ -1,13 +1,18 @@
-#include "AsyncServerSocket.h"
+#include <libext/asyn/AsyncServerSocket.h>
 
-using libext::AsyncServerSocket;
-
+namespace libext
+{
 AsyncServerSocket::AsyncServerSocket()
+: maxInQueue_(kDefaultMessagesInQueue)
 {
 }
 
 AsyncServerSocket::AsyncServerSocket(libext::EventBase* evb) :
 evb_(evb)
+{
+}
+
+AsyncServerSocket::~AsyncServerSocket()
 {
 }
 
@@ -25,20 +30,21 @@ int AsyncServerSocket::createSocket()
 bool AsyncServerSocket::bind(libext::SocketAddr& addr)
 {
     int fd;
-    if(socket_.size() == 0)
+    if(sockets_.size() == 0)
     {
         fd = createSocket();
     }
-    else if(socket_.size() == 1)
+    else if(sockets_.size() == 1)
     {
-        fd = socket_[0].socket_;
+        fd = sockets_[0].socket_;
     }
     else
     {
         //LOG-ERR Asyncserversocket只能监听一个socket
         return false;
     }
-    int ret = ::bind(fd, (struct socketaddr*)addr.getSocketAddr(), sizeof(struct socketaddr));
+    struct sockaddr_in saddr = addr.getSocketAddr();
+    int ret = ::bind(fd, (struct sockaddr*)&saddr, sizeof(struct sockaddr));
     if(ret == -1)
     {
         //LOG_ERR
@@ -52,9 +58,9 @@ bool AsyncServerSocket::bind(libext::SocketAddr& addr)
 bool AsyncServerSocket::listen(int32_t backlog)
 {
     int fd;
-    if(socket_.size() == 1)
+    if(sockets_.size() == 1)
     {
-        fd = socket_[0].socket_;
+        fd = sockets_[0].socket_;
     }
     else
     {
@@ -83,10 +89,10 @@ void AsyncServerSocket::startAccepting()
     }
 
     //对每个eventhandler注册事件
-    for(auto& handler : socket_)
+    for(auto& handler : sockets_)
     {
         //为serversocket注册事件，后续socket的所有事件均会通知到hander
-        handler.registHandler(EventHandler::READ | EventHandler::PERSIST, false);
+        handler.registHandler(EventHandler::READ | EventHandler::PERSIST);
     }
 }
 
@@ -97,10 +103,10 @@ void AsyncServerSocket::addAcceptCB(AcceptCallback* callback, libext::EventBase*
         evb = evb_;
     }
     
-    CallbackInfo info(callback, evb);
-    RemoteAcceptor* acceptor = new RemoteAcceptor(callback, evb);
-    acceptor->start(evb, maxInQueue);
-    info->consumer = acceptor; 
+    CallbackInfo info(callback, NULL);//lql-mark
+    RemoteAcceptor* acceptor = new RemoteAcceptor(callback, NULL);//lql-mark
+    acceptor->start(evb, maxInQueue_);
+    info.consumer = acceptor; 
     callbacks_.push_back(info);
 }
 
@@ -111,7 +117,7 @@ void AsyncServerSocket::removeAcceptCB(AcceptCallback* callback, libext::EventBa
     std::vector<CallbackInfo>::iterator itr = callbacks_.begin();
     while(itr != callbacks_.end())
     {
-        if(itr.callback == callback && itr.evb == evb)
+        if(itr->callback == callback && itr->evb == evb)
         {
             callbacks_.erase(itr);
             break;
@@ -125,7 +131,7 @@ void AsyncServerSocket::setReusePortEnable(bool reuse)
     for(auto& socket : sockets_)
     {
         int val = reuse ? 1 : 0;
-        if(setsocketopt(socket.socket_, SOL_SOCKET,SO_REUSEPORT, 
+        if(setsockopt(socket.socket_, SOL_SOCKET,SO_REUSEPORT, 
               &val, sizeof(val)) != 0)
         {
             //LOG_ERR 设置socket选项失败
@@ -135,10 +141,11 @@ void AsyncServerSocket::setReusePortEnable(bool reuse)
 
 void AsyncServerSocket::handlerReady()
 {
-    socketaddr addr;
-    int addrlen = sizeof(addr.getSocketAddr());
-    int clientSocket = accept(sockets_[0].socket, 
-            (struct socketaddr*)addr.getSocketAddr(), &addrlen);
+    SocketAddr addr;
+    socklen_t addrlen = sizeof(addr.getSocketAddr());
+    struct sockaddr_in saddr = addr.getSocketAddr();
+    int clientSocket = accept(sockets_[0].socket_, 
+            (struct sockaddr*)&saddr, &addrlen);
     
     if(clientSocket >= 0)
     {
@@ -170,7 +177,7 @@ void AsyncServerSocket::dispatchSocket(int socket, const SocketAddr& addr)
         CHECK(info);
         CHECK(info->consumer);
         
-        if(info->consumer->queue_.tryPutMessage(msg))
+        if(info->consumer->getQueue()->tryPutMessage(msg))
         {
             return;
         }
@@ -194,7 +201,7 @@ void AsyncServerSocket::dispatchError(int socket, const SocketAddr& addr)
         CHECK(info);
         CHECK(info->consumer);
         
-        if(info->consumer->queue_.tryPutMessage(msg))
+        if(info->consumer->getQueue()->tryPutMessage(msg))
         {
             return;
         }
@@ -207,10 +214,10 @@ void AsyncServerSocket::dispatchError(int socket, const SocketAddr& addr)
 void AsyncServerSocket::RemoteAcceptor::start(libext::EventBase* evb, int maxInQueue)
 {
     //初始化自己的队列,当有连接请求时才能塞到其任务队列进行消费
-    queue_.setQueueMaxSize(maxInQueue);
+    queue_.setMaxQueueSize(maxInQueue);
 
     //往队列里面投递任务
-    evb->runInEventBaseThread([](){
+    evb->runInEventBaseThread([this, evb](){
             //开始消费queue_里面的任务
             this->startConsuming(evb, &queue_);
             });
@@ -221,6 +228,8 @@ void AsyncServerSocket::RemoteAcceptor::stop(libext::EventBase* evb)
 
 }
 
-void AsyncServerSocket::RemoteAcceptor::messageAvailable(QueueMessage msg)
+void AsyncServerSocket::RemoteAcceptor::messageAvailable(QueueMessage&& msg)
 {
 }
+
+} //libext

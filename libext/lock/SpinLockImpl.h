@@ -18,11 +18,7 @@ public:
 
     inline void lock() 
     {
-        if(0 == pthread_spin_lock(&lock_) )
-        {
-            return true;
-        }
-        return false;
+        pthread_spin_lock(&lock_); 
     }
     inline bool trylock() 
     {

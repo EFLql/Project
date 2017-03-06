@@ -1,10 +1,10 @@
-#include "EventBaseManger.h"
+#include <libext/EventBaseManger.h>
 
-using libext::EventBaseManager;
-
-EventBaseManager::EventBaseManger()
+namespace libext
 {
-    pthread_key_create(tkey_, cleanup);
+EventBaseManager::EventBaseManager()
+{
+    pthread_key_create(&tkey_, cleanup);
 }
 
 EventBaseManager* EventBaseManager::getInstanse()
@@ -16,7 +16,7 @@ EventBaseManager* EventBaseManager::getInstanse()
 EventBase* EventBaseManager::getEventBase()
 {
     EventBase* pEnv;
-    pthread_getspecific(tkey_, (void*)pEnv);
+    pEnv = (EventBase*)pthread_getspecific(tkey_);
 
     if(!pEnv)
     {
@@ -24,7 +24,7 @@ EventBase* EventBaseManager::getEventBase()
         pthread_setspecific(tkey_, (void*)pEnv);
     }
 
-    retur pEnv;
+    return pEnv;
 }
 
 //pthread_key清理函数
@@ -32,6 +32,8 @@ void EventBaseManager::cleanup(void* pEnv)
 {
     if(pEnv)
     {
-        delete p;
+        delete pEnv;
     }
 }
+
+} //libext

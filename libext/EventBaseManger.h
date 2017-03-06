@@ -13,11 +13,11 @@ public:
     
     //获取全局实例对象
     static EventBaseManager* getInstanse();
-    EentBase* getEventBase();
+    EventBase* getEventBase();
 private:
     //禁止用户直接实例化对象
     EventBaseManager();
-    void cleanup(void* pEnv);
+    static void cleanup(void* pEnv);
 
 private:
     pthread_key_t tkey_;

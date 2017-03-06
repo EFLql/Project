@@ -1,31 +1,34 @@
 #pragma once
 #include <libext/asyn/AsyncSocketBase.h>
 #include <libext/EventBaseManger.h>
-
+#include <libext/SocketAddr.h>
+#include <libext/asyn/AsyncServerSocket.h>
 namespace libext
 {
     
 class ServerSocketFactory
 {
 public:
-    ServerSocketFactory();
-    virtual ~ServerSocketFactory();
+    ServerSocketFactory(){}
+    virtual ~ServerSocketFactory() {}
 
     virtual std::shared_ptr<AsyncSocketBase> newSocket(
             libext::SocketAddr& addr, 
             int backlog, bool reuse) = 0;
 
-    virtual addAcceptCB(
-            std::shared_ptr<AsyncSocketBase> socket,
+    virtual void addAcceptCB(
+            std::shared_ptr<AsyncSocketBase> s,
             Acceptor* callback, EventBase* env) = 0;
-    virtual removeAcceptCB(
-            std::shared_ptr<AsyncSocketBase> socket,
+    virtual void removeAcceptCB(
+            std::shared_ptr<AsyncSocketBase> s,
             Acceptor* callback, EventBase* env) = 0;
 };
 
 class AsyncServerSocketFactory : public ServerSocketFactory
 {
 public:
+    AsyncServerSocketFactory() {}
+    ~AsyncServerSocketFactory() {}
     virtual std::shared_ptr<AsyncSocketBase> newSocket(
             libext::SocketAddr& addr, 
             int backlog, bool reuse)
@@ -43,16 +46,18 @@ public:
         return socket;
     }
 
-    virtual addAcceptCB(
-            std::shared_ptr<AsyncSocketBase> socket,
-            Acceptor* callback, EventBase env)
-    {
-        socket->addAcceptCB(callback, env);
-    }
-    virtual removeAcceptCB(
-            std::shared_ptr<AsyncSocketBase> socket,
+    virtual void addAcceptCB(
+            std::shared_ptr<AsyncSocketBase> s,
             Acceptor* callback, EventBase* env)
     {
+        std::shared_ptr<AsyncServerSocket> socket = std::dynamic_pointer_cast<AsyncServerSocket>(s);
+        socket->addAcceptCB(callback, env);
+    }
+    virtual void removeAcceptCB(
+            std::shared_ptr<AsyncSocketBase> s,
+            Acceptor* callback, EventBase* env)
+    {
+        std::shared_ptr<AsyncServerSocket> socket = std::dynamic_pointer_cast<AsyncServerSocket>(s);
         socket->removeAcceptCB(callback, env);
     }
 };

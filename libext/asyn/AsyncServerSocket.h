@@ -1,7 +1,8 @@
 #pragma once
+#include <libext/asyn/AsyncSocketBase.h>
 #include <libext/asyn/EventBase.h>
-#include <libext/asyn/EventHandler>
-#include <SocketAddr.h>
+#include <libext/asyn/EventHandler.h>
+#include <libext/SocketAddr.h>
 #include <libext/asyn/NotificationQue.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -11,27 +12,12 @@
 
 namespace libext
 {
-class AsyncServerSocket
+class AsyncServerSocket : public AsyncSocketBase
 {
 public:
     AsyncServerSocket();
     AsyncServerSocket(libext::EventBase* evb);
     ~AsyncServerSocket();
-
-    int createSocket();
-    void bind(libext::SocketAddr);
-    void listen(int backlog);
-    void startAccepting();
-    void addAcceptCB(AcceptCallback* callback, libext::EventBase* evb);
-    void removeAcceptCB(AcceptCallback* callback, libext::EventBase* evb);
-    void setReusePortEnable(bool reuse);
-    void handerReady(); 
-    EventBase* getEventBase()
-    {
-        return evb_;
-    }
-
-private:
     enum MessageType
     {
         MSG_NEW_CONN,
@@ -46,6 +32,9 @@ private:
     //lql-need modify
     class ConnectionEventCallback
     {
+    public:
+        ConnectionEventCallback() {}
+        ~ConnectionEventCallback() {}
     };
 
     //lql-need modify
@@ -53,15 +42,22 @@ private:
     {
     };
     //lql-need modify
-    class RemoteAcceptor : public libext::NotificationQueue<QueueMessage>::consumer
+    class RemoteAcceptor : public libext::NotificationQueue<QueueMessage>::Consumer
     {
     public:
+        RemoteAcceptor(AcceptCallback* callback, ConnectionEventCallback* connectionEventCallback)
+            :callback_(callback),
+            connectionEventCallback_(connectionEventCallback){}
         void start(libext::EventBase* evb, int maxInQueue);
         void stop(libext::EventBase* evb); 
-        virtual void messageAvailable(QueueMessage msg);
-    private:
+        void messageAvailable(QueueMessage&& msg) override;
+        NotificationQueue<QueueMessage>* getQueue()
+        {
+            return &queue_;
+        }
+    private: 
         AcceptCallback* callback_;
-        ConnectionEventCallback connectionEventCallback_;
+        ConnectionEventCallback* connectionEventCallback_;
         NotificationQueue<QueueMessage> queue_;
     };
    
@@ -75,6 +71,22 @@ private:
         RemoteAcceptor* consumer;
     };
 
+
+    int  createSocket();
+    bool bind(libext::SocketAddr& addr);
+    bool listen(int backlog);
+    void startAccepting();
+    void addAcceptCB(AcceptCallback* callback, libext::EventBase* evb);
+    void removeAcceptCB(AcceptCallback* callback, libext::EventBase* evb);
+    void setReusePortEnable(bool reuse);
+    void handlerReady(); 
+    EventBase* getEventBase() const override
+    {
+        return evb_;
+    }
+
+private:
+    static const int32_t kDefaultMessagesInQueue = 1024;    
     class ServerEventHandler : public libext::EventHandler
     {
     public:
@@ -84,26 +96,28 @@ private:
             evb_(evb),
             parent_(parent)
         {}
-        void handerReady() override
+        void handlerReady() override
         {
-            parent_->handerReady();
+            parent_->handlerReady();
         }
         int socket_;
         AsyncServerSocket* parent_;
         libext::EventBase* evb_;
     };
 private:
-    void dispatchSocket(int socket, const SocketAddr& addr) const;
-    void dispatchError(int socket, const SocketAddr& addr) const;
+    void dispatchSocket(int socket, const SocketAddr& addr);
+    void dispatchError(int socket, const SocketAddr& addr);
     CallbackInfo* nextCallback()
     {
-        return callbacks_[callbackIndex_ ++];
+        callbackIndex_ = callbackIndex_ % callbacks_.size(); 
+        return &callbacks_[callbackIndex_];
     }
 private:
     libext::EventBase* evb_;
     std::vector<ServerEventHandler> sockets_;
     std::vector<CallbackInfo> callbacks_;
     int callbackIndex_{0};
+    int32_t maxInQueue_;
 };
 
 }//libext

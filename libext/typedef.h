@@ -1,5 +1,6 @@
 #pragma once
-
+#include <stddef.h>
+#include <functional>
 namespace libext
 {
 
@@ -9,7 +10,9 @@ typedef short int16_t, WORD;
 typedef unsigned short uint16_t;
 typedef int int32_t, DWORD;
 typedef unsigned int uint32_t;
-typedef __int64 int64_t;
-typedef unsigned __int64 uint64_t;
+typedef long long int64_t;
+typedef unsigned long long uint64_t;
+typedef size_t ssize_t;
 
+typedef std::function<void()> Func;
 }

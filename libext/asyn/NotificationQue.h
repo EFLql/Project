@@ -1,13 +1,16 @@
 #pragma once
-#include <libext/asyn/EventBase.h>
 #include <libext/asyn/EventHandler.h>
+#include <libext/asyn/EventBase.h>
 #include <libext/lock/SpinLock.h>
 #include <libext/FileUtil.h>
+#include <iostream>
 #include <errno.h>
 #include <sys/eventfd.h>
 #include <fcntl.h>
-#include <queue>
-
+#include <deque>
+#include <unistd.h>
+#include <glog/logging.h>
+#include <assert.h>
 namespace libext
 {
 
@@ -22,9 +25,9 @@ public:
         Consumer() : maxReadAtOnce_(kDefaultMaxReadAtOnce) {}
        ~Consumer() {}
 
-       void init(EventBase* evb, int fd);
-       void handerReady() override;
-       void consumerUntilDrainned();
+       void init(EventBase* evb, NotificationQueue* queue);
+       void handlerReady() override;
+       bool consumeUntilDrained();
        virtual void messageAvailable(MessageT&& msg) = 0;
        void startConsuming(EventBase* evb, NotificationQueue* queue)
        {
@@ -39,7 +42,7 @@ public:
                return;
            }
            {
-               libext::SpinLockGuard g(queu_->spinlock_);
+               libext::SpinLockGuard g(queue_->spinlock_);
                queue_->numConsumers_ --;
                queue_->setActive(false);
            }
@@ -60,7 +63,7 @@ public:
         EVENTFD,
         PIPE,
     };
-    NotificationQueue(uint32_t maxSize, FdType fdType = EVENTFD):
+    explicit NotificationQueue(uint32_t maxSize = 0, FdType fdType = EVENTFD):
         eventfd_(-1),
         pid_(pid_t(getpid())),
         advisoryMaxQueueSize_(maxSize)
@@ -83,9 +86,9 @@ public:
             {
                 //LOG_ERR
             }
+            bool flags = false;
             do
             {
-                bool flags = false;
                 //设置管道为非阻塞模式
                 if(fcntl(pipefds_[0], F_SETFL, O_RDONLY | O_NONBLOCK) != 0)
                 {
@@ -121,14 +124,14 @@ public:
         if(pipefds_[1] >= 0)
         {
             ::close(pipefds_[1] );
-            pipefds[1]_ = -1;
+            pipefds_[1] = -1;
         }
     }
     void setMaxQueueSize(uint32_t maxSize)
     {
         advisoryMaxQueueSize_ = maxSize;
     }
-    void checkPid() { CHECK_EQ(pid_, pid_t(getid)); }
+    void checkPid() { CHECK_EQ(pid_, pid_t(getpid())); }
     //尝试插入队列，当队列满时则不差如队列并返回false
     bool tryPutMessage(const MessageT& data)
     {
@@ -155,8 +158,8 @@ public:
     }
 private:
     //forbidden copy constructor and assignment operator
-    NotificationQueue(const NotificationQue& ) = delete;
-    NotificationQueue& operator= (const NotificationQue& ) = delete; 
+    NotificationQueue(const NotificationQueue& ) = delete;
+    NotificationQueue& operator= (const NotificationQueue& ) = delete; 
     bool checkDraining()
     {
         if(draining_)
@@ -186,14 +189,14 @@ private:
         {
             return false;
         }
-        if(numActiveConsumers_ < numsConsumers_)//当队列元素较多时，将所有消费者全部唤醒提高消费速度
+        if(numActiveConsumers_ < numConsumers_)//当队列元素较多时，将所有消费者全部唤醒提高消费速度
         {
             signal = true;
         }
         queue_.emplace_back(data);
         if(signal)
         {
-            ensureSignalLocked(signal);
+            ensureSignal();
         }
         return true;
     }
@@ -207,14 +210,14 @@ private:
         {
             return false;
         }
-        if(numActiveConsumers_ < numsConsumers_)//当队列元素较多时，将所有消费者全部唤醒提高消费速度
+        if(numActiveConsumers_ < numConsumers_)//当队列元素较多时，将所有消费者全部唤醒提高消费速度
         {
             signal = true;
         }
         queue_.emplace_back(std::move(data));
         if(signal)
         {
-            ensureSignalLocked(signal);
+            ensureSignal();
         }
         return true;
     }  
@@ -247,7 +250,7 @@ private:
                 bytes_expected = static_cast<ssize_t>(sizeof(signal));
                 bytes_written = ::write(pipefds_[1], &signal, bytes_expected);
             }
-        }while(bytes_written == -1 && errno == EINTR)
+        }while(bytes_written == -1 && errno == EINTR);
         if(bytes_written == bytes_expected)
         {
             signal_ = true;
@@ -256,16 +259,17 @@ private:
 
     void drainSignalsLocked()//可能在eventfd_或管道无数据的时候调用
     {
+        int ret = 0;
         if(eventfd_ >= 0)
         {
             uint64_t message; 
-            int ret = readNoInt(eventfd_, static_cast<void*>(&message), sizeof(message));
+            ret = readNoInt(eventfd_, static_cast<void*>(&message), sizeof(message));
             CHECK(ret != -1 || errno != EAGAIN);
         }
         else if(pipefds_[0] >= 0)
         {
             uint8_t message;
-            int ret = readNoInt(pipefds_[0], static_cast<void*>(message), sizeof(message));
+            ret = readNoInt(pipefds_[0], static_cast<void*>(&message), sizeof(message));
             CHECK(ret != -1 || errno != EAGAIN);
         }
         if((signal_ && ret == 0) || (signal_ && ret > 0) )
@@ -290,7 +294,7 @@ private:
     }
 
 private:
-    std::dequeue<MessageT> queue_;
+    std::deque<MessageT> queue_;
     pid_t pid_;//用来记录对象在哪个进程里面创建的
     int eventfd_;
     int pipefds_[2];
@@ -299,7 +303,7 @@ private:
     bool draining_;
     uint32_t numActiveConsumers_;
     uint32_t numConsumers_;
-    SpinLock spinlock_;
+    libext::SpinLock spinLock_;
 };
 
 template<typename MessageT>
@@ -371,7 +375,8 @@ void NotificationQueue<MessageT>::Consumer::consumeMessages(bool isDrain)
         {
             break;
         }
-
+        MessageT Msg;
+        bool wasEmpty;
         {
 
             libext::SpinLockGuard g(queue_->spinLock_);
@@ -380,14 +385,15 @@ void NotificationQueue<MessageT>::Consumer::consumeMessages(bool isDrain)
                 break;
             }
             MessageT msg(queue_->queue_.front());
+            Msg = std::move(msg);
             queue_->queue_.pop_front();
             numProcessed ++;
             //由于消息会一直被libevent发出通知消费者，当isDrain为ture时出现总是消耗不完的情况发生
             //所以这里当回调函数执行前队列为空时为准判断队列是否消耗完全
-            bool wasEmpty = queue_->queue_.empty();
+            wasEmpty = queue_->queue_.empty();
         }
 
-        messageAvailable(std::move(msg));
+        messageAvailable(std::move(Msg));
         
         if(!isDrain && numProcessed >= maxReadAtOnce_)
         {

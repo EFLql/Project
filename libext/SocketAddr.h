@@ -1,9 +1,9 @@
 #pragma once
-#include "typedef.h"
+#include <libext/typedef.h>
 
 #include <string>
-#include <socket.h>
-
+#include <netinet/in.h>
+#include <arpa/inet.h>
 namespace libext
 {
 class SocketAddr
@@ -26,13 +26,13 @@ public:
     
     void setFromLocalPort(uint16_t port);
 
-    inline struct socketaddr_in getSocketAddr() const
+    inline struct sockaddr_in getSocketAddr() const
     {
         return addr_;
     }
 
 private:
-    struct socketaddr_in addr_;
+    struct sockaddr_in addr_;
 };
 
 }//libext

@@ -1,10 +1,14 @@
-#include "SocketAddr.h"
+#include <libext/SocketAddr.h>
 
-using libext::SocketAddr;
-
+namespace libext
+{
 SocketAddr::SocketAddr()
 {
 } 
+
+SocketAddr::~SocketAddr()
+{
+}
 
 SocketAddr::SocketAddr(const char* ip, uint16_t port)
 {
@@ -44,16 +48,17 @@ SocketAddr& SocketAddr::operator=(const SocketAddr& addr)
 void SocketAddr::setFromIpAddr(const char* ip, uint16_t port)
 {
     addr_.sin_family = AF_INET;
-    addr_.sin_port = hton(port);
-    addr_.sin_addr = inet_addr(ip);
+    addr_.sin_port = htons(port);
+    addr_.sin_addr.s_addr = inet_addr(ip);
     addr_.sin_zero[0] = '\0'; 
 }
 
 void SocketAddr::setFromLocalPort(uint16_t port)
 {
     addr_.sin_family = AF_INET;
-    addr_.sin_port = hton(port);
-    addr_.sin_addr = INADDR_ANY;
+    addr_.sin_port = htons(port);
+    addr_.sin_addr.s_addr = INADDR_ANY;
     addr_.sin_zero[0] = '\0';
 }
 
+} //libext

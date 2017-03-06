@@ -1,9 +1,9 @@
-#include "ServerBootstrap.h"
-
-using libext::ServerBootstrap;
-using libext::ServerWorkerPool;
-
+#include <libext/bootstrap/ServerBootstrap.h>
+#include <libext/Semaphore.h>
+namespace libext
+{
 ServerBootstrap::ServerBootstrap()
+    :reusePort_(false)
 {
 }
 
@@ -33,38 +33,38 @@ void ServerBootstrap::bind(libext::SocketAddr& addr)
     //创建新的socket的过程 
     auto startupSocket = [&]()
     {
-        auto socket = SocketFactory_->newSocket(addr, reusePort);//create a new obj and bind、listen
+        auto socket =socketFactory_->newSocket(addr, 5, reusePort);//create a new obj and bind、listen
         sock_lock.lock();
-        sockets_.push(socket);
+        sockets_.push_back(socket);
         sock_lock.unlock();
 
         sem.post();
-    }
+    };
 
     //在另外一个线程里面执行创建socket的任务
-    accept_group.addTask(startupSocket);
+    accept_group_->addTask(startupSocket, NULL);
     //等待任务执行完成，使用semaphore进行线程同步
     sem.wait();
 
     //将workfactory_里面的acceptor都取出来注册到新建立的AsyncSocketBase里面
     //注册过程也在accept_group线程池里面完成，主线程不阻塞
-    for(auto& socket : sockets)
+    for(auto& socket : sockets_)
     {
-        workFactory_->forEachWork([socket](Acceptor* work){
-               socket->getEventBase()->runInEventBaseThread([socket]() {
-                   socketFactory_->addAcceptCB(socket, work, work->getEventBase())
-                   })
+        workFactory_->forEachWork([this, socket](Acceptor* work){
+               socket->getEventBase()->runInEventBaseThread([this, socket, work]() {
+                   socketFactory_->addAcceptCB(socket, work, work->getEventBase());
+                   });
                });
     }
 }
 
-void ServerBootstrap::group(std::shared_ptr<libext::ThreadPoolExecutor> io_group)
+void ServerBootstrap::group(std::shared_ptr<IOThreadPoolExecutor> io_group)
 {
     group(io_group, NULL);
 }
 
-void ServerBootstrap::group(std::shared_ptr<libext::ThreadPoolExecutor> io_group,
-                            std::shared_ptr<libext::ThreadPoolExecutor> accept_group)
+void ServerBootstrap::group(std::shared_ptr<IOThreadPoolExecutor> io_group,
+                            std::shared_ptr<IOThreadPoolExecutor> accept_group)
 {
     if(!io_group)
     {
@@ -73,18 +73,18 @@ void ServerBootstrap::group(std::shared_ptr<libext::ThreadPoolExecutor> io_group
         {
             threads = 8;
         }
-        io_group = std::make_shared<libext::ThreadPoolExecutor>(threads);
+        io_group = std::make_shared<libext::IOThreadPoolExecutor>(threads);
     }
     if(!accept_group)
     {
-        accept_group = std::make_shared<libext::ThreadPoolExecutor>(1);
+        accept_group = std::make_shared<libext::IOThreadPoolExecutor>(1);
     }
     if(!acceptorFactory_)
     {
-        acceptorFactory_ = std::make_shared<AcceptorFactory>();
+        acceptorFactory_ = std::make_shared<ServerAcceptorFactory>();
     }
-    workFactory_ = std::make_shared<ServerWorkerPool>(acceptorFactory_, ServerSocketFactory_, io_group);
-    io_group.addObserver(workFactory_);
+    workFactory_ = std::make_shared<ServerWorkerPool>(acceptorFactory_, socketFactory_, sockets_, io_group.get());
+    io_group->addObserver(workFactory_);
     
     io_group_ = io_group;
     accept_group_ = accept_group;
@@ -92,16 +92,20 @@ void ServerBootstrap::group(std::shared_ptr<libext::ThreadPoolExecutor> io_group
 
 
 //////////////////////////////////////////////////////////
+ServerWorkerPool::~ServerWorkerPool()
+{
+}
+
 void ServerWorkerPool::threadStarted(ThreadPtr thread)
 {
-    worker = acceptorFactory_->newAcceptor(exec_->getEventBase() );
-    worker_->insert(make_pair(thread, acceptor));
+    auto worker = acceptorFactory_->newAcceptor(exec_->getEventBase() );
+    worker_->insert(make_pair(thread, worker));
     
     //将新生成的worker对象注册到所有的AsyncSocketBase对象里面
     for(auto& socket : sockets_)
     {
-        socket->getEventBase()->runInEventBaseThread([](){
-                socketFactory_->addAcceptCB(socket, worker_, work->getEventBase())
+        socket->getEventBase()->runInEventBaseThread([this,socket, worker](){
+                socketFactory_->addAcceptCB(socket, worker.get(), worker->getEventBase());
                 });
     }
 }
@@ -112,7 +116,8 @@ void ServerWorkerPool::threadStoped(ThreadPtr thread)
      
 }
 
-void ServerWorkerPool::forEachWork(Func f)
+template<typename F>
+void ServerWorkerPool::forEachWork(F&& f)
 {
     for(auto& woker : *worker_)
     {
@@ -120,3 +125,5 @@ void ServerWorkerPool::forEachWork(Func f)
     }
 }
 
+
+} //libext

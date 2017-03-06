@@ -1,8 +1,10 @@
 #include <libext/asyn/EventHandler.h>
+#include <assert.h>
 
+#include <iostream>//lql-need del
 namespace libext
 {
-EventHandler::EventHandler(EventBase* evb, int32_t socket) :
+EventHandler::EventHandler(EventBase* evb, int32_t socket)
 {
     if(evb != NULL)
     {
@@ -10,8 +12,8 @@ EventHandler::EventHandler(EventBase* evb, int32_t socket) :
         event_set(&event_,          //struct event 
                 socket,             //fd
                 0,                  //events事件类型
-                &EventHandler::libeventCallback,   //callback
-                this);              //arg
+                libeventCallback,   //callback
+                (void*)this);              //arg
         setEventBase(evb);
     }
     else
@@ -24,7 +26,7 @@ EventHandler::EventHandler(EventBase* evb, int32_t socket) :
 void EventHandler::initHandler(EventBase* evb, int fd)
 {
     assert(fd >= 0);
-    event_set(&event, fd, 0, &EventHandler::libeventCallback, this);
+    event_set(&event_, fd, 0, libeventCallback, static_cast<void*>(this));
     setEventBase(evb);
 }
 
@@ -36,14 +38,14 @@ void EventHandler::attachEventBase(EventBase* evb)
 void EventHandler::detachEventBase()
 {
     evb_ = NULL;
-    event_ev_base = NULL;
+    event_.ev_base = NULL;
 }
 
 bool EventHandler::registHandler(int32_t eventtype, bool internal)
 {
     if(isHandlerRegisted())
     {
-        auto flags = event_ref_flags(&event_);
+        auto flags = event_.ev_flags;
         if(eventtype == event_.ev_events && static_cast<bool>(flags & EVLIST_INTERNAL) == internal)
         {
             return true;
@@ -53,11 +55,11 @@ bool EventHandler::registHandler(int32_t eventtype, bool internal)
     }
     if(internal)
     {
-        event_ref_flags(&event_) |= EVLIST_INTERNAL;
+        event_.ev_flags |= EVLIST_INTERNAL;
     }
     //由于event_set会将event_.event_base重置，所以调用之前需要先临时保存event_base
     struct event_base* evb = event_.ev_base; 
-    event_set(&event_, event_.ev_fd, eventtype, &eventHandler::libeventCallback, this);
+    event_set(&event_, event_.ev_fd, eventtype, libeventCallback, this);
     event_base_set(evb, &event_);
     //为struct event增加超时时间
     if(0 > event_add(&event_, //struct event
@@ -81,9 +83,9 @@ bool EventHandler::isHandlerRegisted()
 {
     enum
     {
-        EVLIST_REGISTERED = (EVLIST_INSERTED | EVLIST_ACTIVE | EVLIST_TIMEOUT | EVLIST_SIGNAL);
+        EVLIST_REGISTERED = (EVLIST_INSERTED | EVLIST_ACTIVE | EVLIST_TIMEOUT | EVLIST_SIGNAL)
     };
-    return (event_ref_flags(&event_) & EVLIST_REGISTERED);
+    return (event_.ev_flags & EVLIST_REGISTERED);
 }
 
 void EventHandler::libeventCallback(int socket, int16_t event, void* arg)
@@ -92,7 +94,7 @@ void EventHandler::libeventCallback(int socket, int16_t event, void* arg)
     EventHandler* pthis = (EventHandler*) arg;
     assert(pthis->event_.ev_fd == socket);
     
-    pthis->handerReady();
+    pthis->handlerReady();
 
     std::cout<<"libevent run"<<std::endl;
 }

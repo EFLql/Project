@@ -1,6 +1,8 @@
 #include <libext/bootstrap/ServerBootstrap.h>
 
+using namespace libext;
 int main()
 {
-    ServerBootstrap::bind(8888); 
+    ServerBootstrap server;
+    server.bind(8888); 
 }

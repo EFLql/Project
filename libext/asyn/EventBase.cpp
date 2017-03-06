@@ -1,9 +1,9 @@
-#include "EventBase.h"
-
+#include <libext/asyn/EventBase.h>
+#include <libext/asyn/NotificationQue.h>
 namespace libext
 {
-EventBase::EventBase() : 
-bstop_(false)
+EventBase::EventBase() 
+:bstop_(false)
 {
     base_ = event_base_new();
 }
@@ -29,12 +29,12 @@ bool EventBase::runInEventBaseThread(Func fun)
         return false;
     }
     
-    if(isRuningInEventBase())
+    if(isRunningEventBase())
     {
         runInLoop(fun);
         return true;
     }
-    queue_.putMessage(fun);
+    queue_->putMessage(fun);
     
     return true;
 }
@@ -81,7 +81,7 @@ void EventBase::runCallback()
 
     for(auto itr : tcallback)
     {
-        *itr();
+        itr();
     }
 }
 
@@ -94,7 +94,7 @@ bool EventBase::isRunningEventBase()
 
 bool EventBase::isInEventBaseThread()
 {
-    int r = pthread_equal(pthread_self() == pid_)
+    int r = pthread_equal(pthread_self(), pid_);
     
     return static_cast<bool>(r);
 }
@@ -105,7 +105,7 @@ void EventBase::terminateLoop()
     bstop_ = true;
     spinLock_.unlock();
 
-    event_base_loopbreak(base);
+    event_base_loopbreak(base_);
 }
 
 }//libext
