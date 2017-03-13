@@ -116,13 +116,13 @@ PoolStats ThreadPoolExecutor::getPoolStats()
 
 
 //add schedule
-void ThreadPoolExecutor::addTask(libext::Func fun, libext::Func expireCallback)
+/*void ThreadPoolExecutor::addTask(libext::Func fun, libext::Func expireCallback)
 {
     auto thread = pickThread();
     TaskPtr task = std::make_shared<Task>(fun, expireCallback, std::chrono::milliseconds(100) );
     Thread::TaskWrapper taskwrapper = std::bind(&ThreadPoolExecutor::runTask, this, std::move(task) ); 
     thread->addTask(std::move(taskwrapper) );
-}
+}*/
 
 void ThreadPoolExecutor::runTask(TaskPtr task)
 {
@@ -135,16 +135,23 @@ void ThreadPoolExecutor::runTask(TaskPtr task)
     else
     {
         task->runTime_ = runtime;
-        task->func_();
+        try
+        {
+            task->func_();
+        }catch(const std::exception& e)
+        {
+            std::cout<<"ThreadPoolExecutor threw a unhandler exception "<<e.what()<<std::endl;
+        }
+        
     }
 }
 
-libext::ThreadPtr ThreadPoolExecutor::pickThread()
+/*libext::ThreadPtr ThreadPoolExecutor::pickThread()
 {
     static int s = 0;
     s = (s + 1) % vectThreads_.size();
     return vectThreads_[s];
-}
+}*/
 
 
 } //libext

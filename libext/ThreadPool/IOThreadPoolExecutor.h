@@ -5,20 +5,25 @@
 
 namespace libext
 {
-
+//具体和业务相关的线程池
 class IOThreadPoolExecutor : public ThreadPoolExecutor
 {
 public:
     IOThreadPoolExecutor(int numThreads); 
     ~IOThreadPoolExecutor();
+    void addTask(libext::Func fun, libext::Func expireCallback) override;
+    libext::ThreadPtr pickThread();
 
-    EventBase* getEventBase() const
-    {
-        return libext::EventBaseManager::getInstanse()->getEventBase();
-    }
     void threadRun(ThreadPtr thread) override;
     void addObserver(std::shared_ptr<libext::ThreadPoolExecutor::Observer> o) override; 
     void removeObserver(std::shared_ptr<libext::ThreadPoolExecutor::Observer> o) override;
+    
+    struct IOThread : public Thread
+    {
+        IOThread();
+
+        EventBase* evb;
+    };
 };
 
 } //libext

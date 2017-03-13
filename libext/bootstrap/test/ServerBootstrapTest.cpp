@@ -27,3 +27,17 @@ TEST(ServerSocketFactory, newSocketTest)
     EXPECT_TRUE(socket.get());
 } 
 
+/*TEST(Bootstrap, groupTest)
+{
+    TestServer server;
+    server.group(NULL);
+
+    //EXPECT_TRUE(io_group.get());
+}*/
+
+TEST(Bootstrap, bindTest)
+{
+    TestServer server;
+    server.bind(8889);
+
+}

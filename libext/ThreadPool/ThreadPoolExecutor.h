@@ -16,7 +16,7 @@ struct PoolStats
 	int threadCount, idleCount, pendingTask;
 };
 
-
+//和业务无关的线程池,不能直接使用
 class ThreadPoolExecutor
 {
 public:
@@ -33,12 +33,10 @@ public:
 
 	PoolStats getPoolStats();
 
-	void addTask(libext::Func fun, libext::Func expireCallback);
+	void addTask(libext::Func fun, libext::Func expireCallback) = 0;
 	void runTask(libext::TaskPtr task);
     
-	virtual void threadRun(libext::ThreadPtr thread);
-
-    ThreadPtr pickThread();
+	virtual void threadRun(libext::ThreadPtr thread) = 0;
 
     //Observer interface for thread start/stop
     class Observer
@@ -51,8 +49,8 @@ public:
         virtual ~Observer() = default;
     };
 
-    virtual void addObserver(std::shared_ptr<Observer> o) {}
-    virtual void removeObserver(std::shared_ptr<Observer> o) {}
+    virtual void addObserver(std::shared_ptr<Observer> o) = 0;
+    virtual void removeObserver(std::shared_ptr<Observer> o) = 0;
 
 private:
 	void addThreads(int n);
@@ -64,7 +62,6 @@ protected:
 		return std::make_shared<Thread>();
 	}
 
-private:
 	std::vector<libext::ThreadPtr> vectThreads_;
 	
 	Queue<libext::ThreadPtr> stopQueue_;
