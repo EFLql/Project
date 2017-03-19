@@ -2,10 +2,38 @@
 #include <libext/asyn/NotificationQue.h>
 namespace libext
 {
+
+class FunctionRunner : public NotificationQueue<libext::Func>::Consumer
+{
+public:
+    void messageAvailable(libext::Func&& f) override
+    {
+        if(!f)
+        {
+            return;
+        }
+        try
+        {
+            f();
+        }catch(const std::exception& e)
+        {
+            std::cout<<"Unable handler a unknow exception "<<e.what()<<std::endl;
+        }
+    } 
+};
+
+void EventBase::startConsumingMsg()
+{
+    assert(fnRunner_.get());
+    fnRunner_->stopConsuming();
+    fnRunner_->startConsuming(this, queue_.get()); 
+}
+
 EventBase::EventBase() 
-:bstop_(false)
+: stop_(false)
 {
     base_ = event_base_new();
+    initNotificationQueue();
 }
 
 EventBase::~EventBase()
@@ -19,6 +47,11 @@ void EventBase::loop()
 void EventBase::loopForever()
 {
     loopBody();
+}
+
+void EventBase::loopOnce()
+{
+    loopBody(true);
 }
 
 bool EventBase::runInEventBaseThread(Func fun)
@@ -45,30 +78,38 @@ void EventBase::runInLoop(Func fun)
     callbacks_.push_back(fun);
 }
 
-void EventBase::loopBody()
+void EventBase::initNotificationQueue()
 {
-    spinLock_.lock();
-    pid_ = pthread_self();
-    spinLock_.unlock();
-    
-    while(true)
+    queue_.reset(new NotificationQueue<Func>());
+    fnRunner_.reset(new FunctionRunner());
+}
+
+size_t EventBase::getNotifyQueueSize() const
+{
+    queue_->size();
+}
+
+void EventBase::loopBody(bool once)
+{
+    pid_.store(pthread_self(), std::memory_order_release);//release operation
+    //std::memory_order_acquire内存模型规则-当前线程内读和写此变量
+    //的操作都不会被编译器或者处理器reorder到该load之前
+    //其他线程里面对此变量的使用release的写操作，只要发生当前线程都能看到同时更新store后的值
+    while(!stop_.load(std::memory_order_acquire))
     {
-        spinLock_.lock();
-        if(bstop_)
+        event_base_loop(base_, EVLOOP_ONCE | EVLOOP_NONBLOCK);
+        runCallback();
+        if(getNotifyQueueSize() <= 0)
         {
-            spinLock_.unlock();
             break;
         }
-        spinLock_.unlock();
-
-        event_base_loop(base_, EVLOOP_NONBLOCK);
-        runCallback();
+        if(once)
+        {
+            break;
+        }
     }
-
-    spinLock_.lock();
-    pid_ = NULL;
-    bstop_ = false;
-    spinLock_.unlock();
+    pid_.store(NULL, std::memory_order_release);
+    stop_ = false;
 }
 
 void EventBase::runCallback()
@@ -79,7 +120,7 @@ void EventBase::runCallback()
     tcallback.swap(callbacks_);
     spinLock_.unlock();
 
-    for(auto itr : tcallback)
+    for(auto& itr : tcallback)
     {
         itr();
     }
@@ -87,24 +128,21 @@ void EventBase::runCallback()
 
 bool EventBase::isRunningEventBase()
 {
-    int r = pthread_equal(pid_, 0);
+    int r = pthread_equal(pid_.load(std::memory_order_acquire), 0);
     
     return static_cast<bool>(r);
 }
 
 bool EventBase::isInEventBaseThread()
 {
-    int r = pthread_equal(pthread_self(), pid_);
+    int r = pthread_equal(pthread_self(), pid_.load(std::memory_order_acquire));
     
     return static_cast<bool>(r);
 }
 
 void EventBase::terminateLoop()
 {
-    spinLock_.lock();
-    bstop_ = true;
-    spinLock_.unlock();
-
+    stop_.store(true, std::memory_order_release);//release memory barrier
     event_base_loopbreak(base_);
 }
 

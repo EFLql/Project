@@ -1,6 +1,5 @@
 #pragma once
 #include <libext/lock/SpinLockImpl.h>
-
 namespace libext
 {
 typedef SpinLockPthreadImpl SpinLock;

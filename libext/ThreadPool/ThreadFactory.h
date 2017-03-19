@@ -12,7 +12,7 @@ public:
 	virtual ~ThreadFactory();
 	
 public:
-	std::thread newThread(libext::Func func);
+	std::thread newThread(libext::Func&& func);
 };
 
 

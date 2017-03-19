@@ -10,8 +10,8 @@ ThreadFactory::~ThreadFactory()
 {
 }
 
-std::thread ThreadFactory::newThread(libext::Func func)
+std::thread ThreadFactory::newThread(libext::Func&& func)
 {
-	std::thread thread(func);
-	return std::move(thread);
+	auto thread = std::thread(std::move(func));
+	return thread;
 }

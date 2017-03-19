@@ -42,15 +42,19 @@ public:
                return;
            }
            {
-               libext::SpinLockGuard g(queue_->spinlock_);
+               libext::SpinLockGuard g(queue_->spinLock_);
                queue_->numConsumers_ --;
-               queue_->setActive(false);
+               setActive(false);
            }
            assert(isHandlerRegisted());
            unregisterHandler();
            detachEventBase();
            queue_ = NULL;
        } 
+       void setActive(bool active)
+       {
+
+       }
     private:
        void consumeMessages(bool isDrain);
     private:
@@ -155,6 +159,11 @@ public:
     bool putMessage(Iterator first, Iterator last)
     {
 
+    }
+    size_t size()
+    {
+        libext::SpinLockGuard g(spinLock_);
+        return queue_.size();
     }
 private:
     //forbidden copy constructor and assignment operator
@@ -292,7 +301,7 @@ private:
             ensureSignalLocked();//否则继续通知消费者消费,属于消费值达到maxReadAtOnce_退出消费循环的条件
         }
     }
-
+    
 private:
     std::deque<MessageT> queue_;
     pid_t pid_;//用来记录对象在哪个进程里面创建的

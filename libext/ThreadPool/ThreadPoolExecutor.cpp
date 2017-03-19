@@ -4,9 +4,8 @@
 
 namespace libext
 {
-ThreadPoolExecutor::ThreadPoolExecutor(int numthreads)
+ThreadPoolExecutor::ThreadPoolExecutor()
 {
-    setThreads(numthreads);
 }
 
 
@@ -17,32 +16,39 @@ ThreadPoolExecutor::~ThreadPoolExecutor()
 //add thread manager
 void ThreadPoolExecutor::addThreads(int n)
 {
-	//std::lock_guard<std::mutex> guard(mutexvectThreads_);
-	
-	for(int i = 0; i < n; i ++)
+    std::cout<<"add "<<" thread"<<std::endl;
+    std::vector<ThreadPtr> newThreads;
+    for(int i = 0; i < n; i ++)
+    {
+        auto thread = makeThread();
+	    thread->id = i;	
+        newThreads.push_back(thread);
+    }
+	for(auto& thread : newThreads)
 	{
-        std::cout<<"add "<<i<<" thread"<<std::endl;
-		auto thread = makeThread();
-        thread->shouldRunning.store(true, std::memory_order_release);   
-		thread->handler_ = threadFactory_.newThread( std::bind(&ThreadPoolExecutor::threadRun, this, thread) );
-		vectThreads_.push_back(std::move(thread) );
+		thread->handler = threadFactory_.newThread(
+                std::bind(&ThreadPoolExecutor::threadRun, this, thread));
+        vectThreads_.push_back(thread);
 	}
+    for(auto& thread : newThreads)
+    {
+        thread->sem.wait();
+    }
 }
 
 
 void ThreadPoolExecutor::removeThreads(int n)
 {
-    //std::lock_guard<std::mutex> guard(mutexvectThreads_);
     std::vector<ThreadPtr>::iterator itr;
     stopThreads(n);
 
     for(int i = 0; i < n;i ++)
     {
-        auto thread = stopQueue_.take(true);
-        thread->handler_.join();
+        auto thread = stopQueue_.take();
+        thread->handler.join();
         for(itr = vectThreads_.begin(); itr != vectThreads_.end(); )
         {
-            if(*itr == thread)
+            if(itr->get()->id == thread->id)
             {
                 itr = vectThreads_.erase(itr);
                 break;
@@ -58,7 +64,7 @@ void ThreadPoolExecutor::removeThreads(int n)
 
 void ThreadPoolExecutor::setThreads(int n)
 {
-    std::lock_guard<std::mutex> guard(mutexvectThreads_);
+    libext::WriteLockGuard guard(rwLock_);
     int current = vectThreads_.size();
     if(current < n)
     {
@@ -70,59 +76,25 @@ void ThreadPoolExecutor::setThreads(int n)
     }
 }
 
-void ThreadPoolExecutor::threadRun(ThreadPtr thread)
-{
-    while(thread->shouldRunning.load(std::memory_order_acquire))
-    {
-        //runing the thread
-        Thread::TaskWrapper taskwrapper = thread->getTask();
-        if(NULL == taskwrapper) usleep(10);
-        else taskwrapper(NULL); 
-    }
-
-    //add it to queue
-    stopQueue_.pushback(thread);
-}
-
-void ThreadPoolExecutor::stopThreads(int n)
-{
-    std::vector<ThreadPtr>::iterator itr = vectThreads_.begin();
-    for(int i = 0; i < n, itr != vectThreads_.end(); i++, itr++)
-    {
-        auto thread = *itr;
-        thread->shouldRunning.store(false, std::memory_order_release);
-    }
-}
-
 void ThreadPoolExecutor::stopAllThreads()
 {
-    std::lock_guard<std::mutex> guard(mutexvectThreads_);
+    libext::WriteLockGuard guard(rwLock_);
     int n = vectThreads_.size();
     removeThreads(n);
 }
 
 PoolStats ThreadPoolExecutor::getPoolStats()
 {
-    std::lock_guard<std::mutex> guard(mutexvectThreads_);
+    libext::ReadLockGuard guard(rwLock_);
     PoolStats stats;
     stats.threadCount = vectThreads_.size();
     for(int i =0; i < stats.threadCount; i ++)
     {
-        if(vectThreads_[i]->idle.load(std::memory_order_acquire)) stats.idleCount ++;
+        if(vectThreads_[i]->status == Thread::IDLE) stats.idleCount ++;
 
     }
     return stats;
 }
-
-
-//add schedule
-/*void ThreadPoolExecutor::addTask(libext::Func fun, libext::Func expireCallback)
-{
-    auto thread = pickThread();
-    TaskPtr task = std::make_shared<Task>(fun, expireCallback, std::chrono::milliseconds(100) );
-    Thread::TaskWrapper taskwrapper = std::bind(&ThreadPoolExecutor::runTask, this, std::move(task) ); 
-    thread->addTask(std::move(taskwrapper) );
-}*/
 
 void ThreadPoolExecutor::runTask(TaskPtr task)
 {
@@ -146,12 +118,34 @@ void ThreadPoolExecutor::runTask(TaskPtr task)
     }
 }
 
-/*libext::ThreadPtr ThreadPoolExecutor::pickThread()
+size_t ThreadPoolExecutor::StopedQueue::size()
 {
-    static int s = 0;
-    s = (s + 1) % vectThreads_.size();
-    return vectThreads_[s];
-}*/
+    std::lock_guard<std::mutex> guard(mutex_);
+    return queue_.size();
+}
 
+void ThreadPoolExecutor::StopedQueue::add(ThreadPtr thread)
+{
+    std::lock_guard<std::mutex> guard(mutex_);
+    queue_.push(thread);
+    sem_.post();
+}
+
+ThreadPoolExecutor::ThreadPtr ThreadPoolExecutor::StopedQueue::take()
+{
+    while(true)
+    {
+        {
+            std::lock_guard<std::mutex> guard(mutex_);
+            if(!queue_.empty())
+            {
+                ThreadPtr thread = queue_.front();
+                queue_.pop();
+                return thread;
+            }
+        }
+        sem_.wait(); 
+    }
+}
 
 } //libext

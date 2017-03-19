@@ -30,9 +30,9 @@ public:
         , worker_(std::make_shared<WorkerMap>()){}
     ~ServerWorkerPool(); 
 
-    void threadStarted(ThreadPtr thread);
-    void threadStoped(ThreadPtr thread);
-    void threadNotYetStoped(ThreadPtr thread)
+    void threadStarted(ThreadPoolExecutor::ThreadPtr thread);
+    void threadStoped(ThreadPoolExecutor::ThreadPtr thread);
+    void threadNotYetStoped(ThreadPoolExecutor::ThreadPtr thread)
     {
         threadStoped(thread);
     }
@@ -42,7 +42,7 @@ public:
 private:
     //c++11 using could replace typedef
     //using WorkerMap = std::map<ThreadPtr, std::shared_ptr<Acceptor>>;
-    typedef std::map<ThreadPtr, std::shared_ptr<Acceptor>> WorkerMap;
+    typedef std::map<ThreadPoolExecutor::ThreadPtr, std::shared_ptr<Acceptor>> WorkerMap;
     std::shared_ptr<WorkerMap> worker_;
     std::shared_ptr<AcceptorFactory> acceptorFactory_;
     std::shared_ptr<ServerSocketFactory> socketFactory_;

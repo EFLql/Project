@@ -2,6 +2,8 @@
 #include <libext/ThreadPool/ThreadPoolExecutor.h>
 #include <libext/asyn/EventBase.h>
 #include <libext/EventBaseManger.h>
+#include <libext/lock/RWLock.h>
+#include <libext/detail/Cache.h>
 
 namespace libext
 {
@@ -12,18 +14,23 @@ public:
     IOThreadPoolExecutor(int numThreads); 
     ~IOThreadPoolExecutor();
     void addTask(libext::Func fun, libext::Func expireCallback) override;
-    libext::ThreadPtr pickThread();
-
-    void threadRun(ThreadPtr thread) override;
     void addObserver(std::shared_ptr<libext::ThreadPoolExecutor::Observer> o) override; 
     void removeObserver(std::shared_ptr<libext::ThreadPoolExecutor::Observer> o) override;
-    
-    struct IOThread : public Thread
+    EventBase* getEventBase(ThreadPoolExecutor::Thread* h); 
+private: 
+    struct LIBEXT_ALIGNED_AVOID_FALSE_SHARED IOThread : public Thread
     {
-        IOThread();
-
+        IOThread(): evb(NULL), shouldRunning(true) {}
+        ~IOThread() {} 
+        std::atomic<bool> shouldRunning; 
         EventBase* evb;
     };
+    void stopThreads(int n) override;
+    ThreadPtr pickThread();
+    ThreadPtr makeThread() override;
+    void threadRun(ThreadPtr thread) override;
+private:
+    bool isJoin_;
 };
 
 } //libext

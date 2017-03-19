@@ -28,6 +28,7 @@ EventBase* EventBaseManager::getEventBase()
 }
 
 //pthread_key清理函数
+//每当线程结束时，系统会自动清理键上的数据块
 void EventBaseManager::cleanup(void* pEnv)
 {
     if(pEnv)

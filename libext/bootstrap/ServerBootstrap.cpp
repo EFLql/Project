@@ -96,9 +96,9 @@ ServerWorkerPool::~ServerWorkerPool()
 {
 }
 
-void ServerWorkerPool::threadStarted(ThreadPtr thread)
+void ServerWorkerPool::threadStarted(ThreadPoolExecutor::ThreadPtr thread)
 {
-    auto worker = acceptorFactory_->newAcceptor(exec_->getEventBase() );
+    auto worker = acceptorFactory_->newAcceptor(exec_->getEventBase(thread.get()) );
     worker_->insert(make_pair(thread, worker));
     
     //将新生成的worker对象注册到所有的AsyncSocketBase对象里面
@@ -111,7 +111,7 @@ void ServerWorkerPool::threadStarted(ThreadPtr thread)
 }
 
 //线程停止
-void ServerWorkerPool::threadStoped(ThreadPtr thread)
+void ServerWorkerPool::threadStoped(ThreadPoolExecutor::ThreadPtr thread)
 {
      
 }
