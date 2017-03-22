@@ -97,6 +97,7 @@ void EventBase::loopBody(bool once)
     //其他线程里面对此变量的使用release的写操作，只要发生当前线程都能看到同时更新store后的值
     while(!stop_.load(std::memory_order_acquire))
     {
+        startConsumingMsg();
         event_base_loop(base_, EVLOOP_ONCE | EVLOOP_NONBLOCK);
         runCallback();
         if(getNotifyQueueSize() <= 0)
@@ -128,16 +129,16 @@ void EventBase::runCallback()
 
 bool EventBase::isRunningEventBase()
 {
-    int r = pthread_equal(pid_.load(std::memory_order_acquire), 0);
+    int ret = pthread_equal(pid_.load(std::memory_order_acquire), 0);
     
-    return static_cast<bool>(r);
+    return ret == 0 ? false : true;
 }
 
 bool EventBase::isInEventBaseThread()
 {
-    int r = pthread_equal(pthread_self(), pid_.load(std::memory_order_acquire));
+    int ret = pthread_equal(pthread_self(), pid_.load(std::memory_order_acquire));
     
-    return static_cast<bool>(r);
+    return ret == 0 ? false : true;
 }
 
 void EventBase::terminateLoop()

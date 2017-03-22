@@ -18,6 +18,7 @@ void IOThreadPoolExecutor::addTask(libext::Func fun, libext::Func expireCallback
     auto thread = std::static_pointer_cast<IOThread>(pickThread());
     assert(thread->evb);
     TaskPtr task = std::make_shared<Task>(fun, expireCallback,std::chrono::milliseconds(100));
+    task->pendingTime_ = std::chrono::steady_clock::now();
     auto funcWrapper = [this, task, thread]() {
        thread->status = Thread::BUSY;
        runTask(std::move(task));

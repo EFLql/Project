@@ -16,7 +16,7 @@ namespace libext
 
 struct PoolStats
 {
-	PoolStats() {}
+	PoolStats(): threadCount(0), idleCount(0), pendingTask(0) {}
 
 	int threadCount, idleCount, pendingTask;
 };

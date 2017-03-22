@@ -63,7 +63,10 @@ public:
 
     void group(std::shared_ptr<IOThreadPoolExecutor> io_group,
             std::shared_ptr<IOThreadPoolExecutor> accept_group);
-
+    void setSocketFactor(std::shared_ptr<ServerSocketFactory> factory)
+    {
+        socketFactory_ = factory;
+    }
 private:
     std::vector<std::shared_ptr<AsyncSocketBase>> sockets_;
     std::shared_ptr<ServerSocketFactory> socketFactory_;

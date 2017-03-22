@@ -27,17 +27,10 @@ TEST(ServerSocketFactory, newSocketTest)
     EXPECT_TRUE(socket.get());
 } 
 
-/*TEST(Bootstrap, groupTest)
-{
-    TestServer server;
-    server.group(NULL);
-
-    //EXPECT_TRUE(io_group.get());
-}*/
-
 TEST(Bootstrap, bindTest)
 {
     TestServer server;
+    server.setSocketFactor(std::make_shared<libext::AsyncServerSocketFactory>());
     server.bind(8889);
-
+    sleep(5);
 }

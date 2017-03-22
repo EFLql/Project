@@ -34,29 +34,10 @@ public:
            init(evb, queue);
            registHandler(READ | PERSIST);
        }
-       void stopConsuming()
-       {
-           if(queue_ == NULL)//没有调用startconsuming直接调用stopconsuming
-           {
-               assert(!isHandlerRegisted());
-               return;
-           }
-           {
-               libext::SpinLockGuard g(queue_->spinLock_);
-               queue_->numConsumers_ --;
-               setActive(false);
-           }
-           assert(isHandlerRegisted());
-           unregisterHandler();
-           detachEventBase();
-           queue_ = NULL;
-       } 
-       void setActive(bool active)
-       {
-
-       }
+       void stopConsuming();
     private:
        void consumeMessages(bool isDrain);
+       void setActive(bool active);
     private:
        int maxReadAtOnce_;
        NotificationQueue* queue_;
@@ -165,6 +146,12 @@ public:
         libext::SpinLockGuard g(spinLock_);
         return queue_.size();
     }
+    
+    void ensureSignal()
+    {
+        libext::SpinLockGuard g(spinLock_);//自旋锁
+        ensureSignalLocked();
+    }
 private:
     //forbidden copy constructor and assignment operator
     NotificationQueue(const NotificationQueue& ) = delete;
@@ -205,7 +192,7 @@ private:
         queue_.emplace_back(data);
         if(signal)
         {
-            ensureSignal();
+            ensureSignalLocked();
         }
         return true;
     }
@@ -226,17 +213,11 @@ private:
         queue_.emplace_back(std::move(data));
         if(signal)
         {
-            ensureSignal();
+            ensureSignalLocked();
         }
         return true;
     }  
    
-    void ensureSignal()
-    {
-        libext::SpinLockGuard g(spinLock_);//自旋锁
-        ensureSignalLocked();
-    }
-    
     void ensureSignalLocked()
     {
         if(signal_)
@@ -281,9 +262,10 @@ private:
             ret = readNoInt(pipefds_[0], static_cast<void*>(&message), sizeof(message));
             CHECK(ret != -1 || errno != EAGAIN);
         }
-        if((signal_ && ret == 0) || (signal_ && ret > 0) )
+        if((signal_ && ret == 0) || (!signal_ && ret > 0) )
         {
             //LOG_ERR
+            assert(false);
             std::cout<<"error"<<std::endl;
         }
         signal_ = false;
@@ -375,9 +357,43 @@ bool NotificationQueue<MessageT>::Consumer::consumeUntilDrained()
 }
 
 template<typename MessageT>
+void NotificationQueue<MessageT>::Consumer::setActive(bool active)
+{
+    libext::SpinLockGuard g(queue_->spinLock_);
+    if(active)
+    {
+        queue_->numActiveConsumers_ --;
+    }
+    else
+    {
+        queue_->numActiveConsumers_ ++;
+    }
+}
+
+template<typename MessageT>
+void NotificationQueue<MessageT>::Consumer::stopConsuming()
+{
+    if(queue_ == NULL)//没有调用startconsuming直接调用stopconsuming
+    {
+        assert(!isHandlerRegisted());
+        return;
+    }
+    {
+        libext::SpinLockGuard g(queue_->spinLock_);
+        queue_->numConsumers_ --;
+        queue_->numActiveConsumers_ --; 
+    }
+    assert(isHandlerRegisted());
+    unregisterHandler();
+    detachEventBase();
+    queue_ = NULL;
+}
+
+template<typename MessageT>
 void NotificationQueue<MessageT>::Consumer::consumeMessages(bool isDrain)
 {
     uint32_t numProcessed = 0;
+    setActive(true);
     while(true)
     {
         if(queue_ == NULL)
@@ -413,6 +429,7 @@ void NotificationQueue<MessageT>::Consumer::consumeMessages(bool isDrain)
             break;
         }
     }
+    setActive(false);
     //退出循环的可能有：1.queue_为空指针即中途调用了stopConsuming函数停止消费
     //2.队列元素被消费完；3.消费值达到maxReadAtOnce
     //对于第2中情况当队列为空时需要通知其他消费者停止消费

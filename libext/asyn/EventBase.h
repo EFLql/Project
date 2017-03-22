@@ -48,7 +48,7 @@ private:
     
     SpinLock spinLock_;
     std::atomic<bool> stop_;
-    std::atomic<pid_t> pid_;
+    std::atomic<pthread_t> pid_;
 
 };
 
