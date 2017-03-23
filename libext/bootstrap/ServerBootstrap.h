@@ -2,6 +2,7 @@
 #include <libext/bootstrap/acceptor/Acceptor.h>
 #include <libext/ThreadPool/IOThreadPoolExecutor.h>
 #include <libext/bootstrap/ServerSocketFactory.h>
+#include <libext/lock/SpinLock.h>
 #include <map>
 #include <memory>
 namespace libext
@@ -42,6 +43,7 @@ public:
 private:
     //c++11 using could replace typedef
     //using WorkerMap = std::map<ThreadPtr, std::shared_ptr<Acceptor>>;
+    libext::SpinLock spinLock_;
     typedef std::map<ThreadPoolExecutor::ThreadPtr, std::shared_ptr<Acceptor>> WorkerMap;
     std::shared_ptr<WorkerMap> worker_;
     std::shared_ptr<AcceptorFactory> acceptorFactory_;

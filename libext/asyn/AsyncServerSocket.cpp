@@ -33,6 +33,7 @@ bool AsyncServerSocket::bind(libext::SocketAddr& addr)
     if(sockets_.size() == 0)
     {
         fd = createSocket();
+        sockets_.push_back(ServerEventHandler(evb_, fd, this));
     }
     else if(sockets_.size() == 1)
     {

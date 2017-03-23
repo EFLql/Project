@@ -99,7 +99,10 @@ ServerWorkerPool::~ServerWorkerPool()
 void ServerWorkerPool::threadStarted(ThreadPoolExecutor::ThreadPtr thread)
 {
     auto worker = acceptorFactory_->newAcceptor(exec_->getEventBase(thread.get()) );
-    worker_->insert(make_pair(thread, worker));
+    {
+        libext::SpinLockGuard g(spinLock_);
+        worker_->insert(make_pair(thread, worker));
+    }
     
     //将新生成的worker对象注册到所有的AsyncSocketBase对象里面
     for(auto& socket : sockets_)
@@ -119,6 +122,7 @@ void ServerWorkerPool::threadStoped(ThreadPoolExecutor::ThreadPtr thread)
 template<typename F>
 void ServerWorkerPool::forEachWork(F&& f)
 {
+    libext::SpinLockGuard g(spinLock_);
     for(auto& woker : *worker_)
     {
         f(woker.second.get()); 
