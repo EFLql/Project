@@ -118,6 +118,7 @@ private:
     std::vector<CallbackInfo> callbacks_;
     int callbackIndex_{0};
     int32_t maxInQueue_;
+    bool accepted_;
 };
 
 }//libext

@@ -32,7 +32,14 @@ void ThreadPoolExecutor::addThreads(int n)
 	}
     for(auto& thread : newThreads)
     {
-        thread->sem.wait();
+        thread->sem.wait();//需要等EentBase启动好之后才能通知所有的observer
+    }
+    for(auto& o : observers_)
+    {
+        for(auto& thread : newThreads)
+        {
+            o->threadStarted(thread);
+        }
     }
 }
 
@@ -115,6 +122,24 @@ void ThreadPoolExecutor::runTask(TaskPtr task)
             std::cout<<"ThreadPoolExecutor threw a unhandler exception "<<e.what()<<std::endl;
         }
         
+    }
+}
+
+//observers_的操作不应该在多线程内操作
+void ThreadPoolExecutor::addObserver(std::shared_ptr<libext::ThreadPoolExecutor::Observer> o)
+{
+    observers_.push_back(o);
+}
+
+void ThreadPoolExecutor::removeObserver(std::shared_ptr<libext::ThreadPoolExecutor::Observer> o)
+{
+    std::vector<std::shared_ptr<Observer>>::iterator itr = observers_.begin();
+    for(; itr != observers_.end(); itr ++)
+    {
+        if(*itr == o)
+        {
+            observers_.erase(itr);
+        }
     }
 }
 

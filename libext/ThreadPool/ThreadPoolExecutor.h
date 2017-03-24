@@ -74,8 +74,8 @@ public:
         virtual ~Observer() = default;
     };
 
-    virtual void addObserver(std::shared_ptr<Observer> o) = 0;
-    virtual void removeObserver(std::shared_ptr<Observer> o) = 0;
+    virtual void addObserver(std::shared_ptr<Observer> o);
+    virtual void removeObserver(std::shared_ptr<Observer> o);
     
     class StopedQueue : public BlockingQueue<ThreadPtr>
     {
@@ -106,7 +106,7 @@ protected:
     RWLock rwLock_;  
 	ThreadFactory threadFactory_;
     
-    std::shared_ptr<Observer> observer_;
+    std::vector<std::shared_ptr<Observer>> observers_;
 };
 
 

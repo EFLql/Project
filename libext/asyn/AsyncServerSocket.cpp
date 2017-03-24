@@ -4,6 +4,7 @@ namespace libext
 {
 AsyncServerSocket::AsyncServerSocket()
 : maxInQueue_(kDefaultMessagesInQueue)
+, accepted_(false)
 {
 }
 
@@ -83,6 +84,7 @@ bool AsyncServerSocket::listen(int32_t backlog)
 
 void AsyncServerSocket::startAccepting()
 {
+    accepted_ = true;
     if(callbacks_.empty())
     {
         //LOG_INFO 没有安装任何的回调
@@ -102,8 +104,7 @@ void AsyncServerSocket::addAcceptCB(AcceptCallback* callback, libext::EventBase*
     if(!evb_)
     {
         evb = evb_;
-    }
-    
+    }//add callback
     CallbackInfo info(callback, NULL);//lql-mark
     RemoteAcceptor* acceptor = new RemoteAcceptor(callback, NULL);//lql-mark
     acceptor->start(evb, maxInQueue_);
@@ -231,6 +232,7 @@ void AsyncServerSocket::RemoteAcceptor::stop(libext::EventBase* evb)
 
 void AsyncServerSocket::RemoteAcceptor::messageAvailable(QueueMessage&& msg)
 {
+    std::cout<<"Accepted client socket= "<<msg.socket<<std::endl;
 }
 
 } //libext

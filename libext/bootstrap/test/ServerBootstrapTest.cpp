@@ -32,5 +32,5 @@ TEST(Bootstrap, bindTest)
     TestServer server;
     server.setSocketFactor(std::make_shared<libext::AsyncServerSocketFactory>());
     server.bind(8889);
-    sleep(5);
+    sleep(500);
 }

@@ -14,8 +14,6 @@ public:
     IOThreadPoolExecutor(int numThreads); 
     ~IOThreadPoolExecutor();
     void addTask(libext::Func fun, libext::Func expireCallback) override;
-    void addObserver(std::shared_ptr<libext::ThreadPoolExecutor::Observer> o) override; 
-    void removeObserver(std::shared_ptr<libext::ThreadPoolExecutor::Observer> o) override;
     EventBase* getEventBase(ThreadPoolExecutor::Thread* h); 
 private: 
     struct LIBEXT_ALIGNED_AVOID_FALSE_SHARED IOThread : public Thread

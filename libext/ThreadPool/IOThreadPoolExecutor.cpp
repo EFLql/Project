@@ -53,7 +53,8 @@ void IOThreadPoolExecutor::threadRun(ThreadPtr thread)
     std::shared_ptr<IOThread> ioThread = std::static_pointer_cast<IOThread>(thread);
     ioThread->evb = EventBaseManager::getInstanse()->getEventBase();
     
-    ioThread->sem.post(); 
+    ioThread->evb->runInEventBaseThread([ioThread] () {
+            ioThread->sem.post(); });//必须确保EventBase循环启动了才通知所有的observer
     while(ioThread->shouldRunning)//shouldrunning是atomic类型的变量，这里使用默认的内存顺序
     {
         ioThread->evb->loopForever();
@@ -73,13 +74,7 @@ void IOThreadPoolExecutor::threadRun(ThreadPtr thread)
     stopQueue_.add(ioThread);
 }
 
-void IOThreadPoolExecutor::addObserver(std::shared_ptr<libext::ThreadPoolExecutor::Observer> o)
-{
-}
 
-void IOThreadPoolExecutor::removeObserver(std::shared_ptr<libext::ThreadPoolExecutor::Observer> o)
-{
-}
 
 EventBase* IOThreadPoolExecutor::getEventBase(ThreadPoolExecutor::Thread* h)
 {
