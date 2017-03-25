@@ -12,6 +12,7 @@ public:
     ~Acceptor() {}
     void init(EventBase* evb)
     {
+        CHECK(base_ == NULL || evb == base_);
         base_ = evb;
     }
 
@@ -34,6 +35,7 @@ public:
     std::shared_ptr<Acceptor> newAcceptor(EventBase* evb)
     {
         std::shared_ptr<Acceptor> acceptor = std::make_shared<Acceptor>();
+        acceptor->init(evb);
         return acceptor;
     } 
 };

@@ -67,7 +67,15 @@ bool EventBase::runInEventBaseThread(Func fun)
         runInLoop(fun);
         return true;
     }
-    queue_->putMessage(fun);
+    try
+    {
+        queue_->putMessage(fun);//队列有长度限制，putMessage可能会抛出异常
+    }catch(const std::exception& e)
+    {
+        //LOG-ERR
+        std::cout<<"runInEventBaseThread put message into queue faild"<<e.what()<<std::endl;
+        return false;//这里不throw出去，需要手动返回
+    }
     
     return true;
 }

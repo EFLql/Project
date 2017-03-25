@@ -84,6 +84,8 @@ bool AsyncServerSocket::listen(int32_t backlog)
 
 void AsyncServerSocket::startAccepting()
 {
+    assert(evb_ == NULL || evb_->isInEventBaseThread());//当前肯定在evb循环里面
+
     accepted_ = true;
     if(callbacks_.empty())
     {
@@ -101,15 +103,24 @@ void AsyncServerSocket::startAccepting()
 
 void AsyncServerSocket::addAcceptCB(AcceptCallback* callback, libext::EventBase* evb)
 {
-    if(!evb_)
+    RemoteAcceptor* acceptor;
+    try
     {
-        evb = evb_;
-    }//add callback
-    CallbackInfo info(callback, NULL);//lql-mark
-    RemoteAcceptor* acceptor = new RemoteAcceptor(callback, NULL);//lql-mark
-    acceptor->start(evb, maxInQueue_);
-    info.consumer = acceptor; 
-    callbacks_.push_back(info);
+        //new在内存紧张的情况下会拋异常
+        acceptor = new RemoteAcceptor(callback, NULL);//lql-mark,
+        acceptor->start(evb, maxInQueue_);
+    }catch(const std::exception& e)
+    {
+        delete acceptor;
+        throw;
+    }
+    bool shouldStartAccept = accepted_ && callbacks_.empty();
+    callbacks_.push_back(CallbackInfo(callback, evb));
+    callbacks_.back().consumer = acceptor;
+    if(shouldStartAccept)
+    {
+        startAccepting();
+    }
 }
 
 void AsyncServerSocket::removeAcceptCB(AcceptCallback* callback, libext::EventBase* evb)
@@ -219,10 +230,14 @@ void AsyncServerSocket::RemoteAcceptor::start(libext::EventBase* evb, int maxInQ
     queue_.setMaxQueueSize(maxInQueue);
 
     //往队列里面投递任务
-    evb->runInEventBaseThread([this, evb](){
+    if(!evb->runInEventBaseThread([this, evb](){
             //开始消费queue_里面的任务
             this->startConsuming(evb, &queue_);
-            });
+            }))
+    {
+        throw std::invalid_argument("Unable start waiting on accept notification  \
+               queue in specifical eventbase"); 
+    }
 }
 
 void AsyncServerSocket::RemoteAcceptor::stop(libext::EventBase* evb)

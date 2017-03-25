@@ -128,7 +128,12 @@ void ThreadPoolExecutor::runTask(TaskPtr task)
 //observers_的操作不应该在多线程内操作
 void ThreadPoolExecutor::addObserver(std::shared_ptr<libext::ThreadPoolExecutor::Observer> o)
 {
+    libext::ReadLockGuard g(rwLock_);
     observers_.push_back(o);
+    for(auto& thread : vectThreads_)
+    {
+        o->threadStarted(thread);
+    }
 }
 
 void ThreadPoolExecutor::removeObserver(std::shared_ptr<libext::ThreadPoolExecutor::Observer> o)

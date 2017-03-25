@@ -85,7 +85,6 @@ void ServerBootstrap::group(std::shared_ptr<IOThreadPoolExecutor> io_group,
     }
     workFactory_ = std::make_shared<ServerWorkerPool>(acceptorFactory_, socketFactory_, sockets_, io_group.get());
     io_group->addObserver(workFactory_);
-    
     io_group_ = io_group;
     accept_group_ = accept_group;
 }
