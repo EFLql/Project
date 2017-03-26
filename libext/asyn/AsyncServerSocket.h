@@ -9,6 +9,7 @@
 #include <string.h>
 #include <errno.h>
 #include <vector>
+#include <exception>
 
 namespace libext
 {
@@ -17,6 +18,10 @@ class AsyncServerSocket : public AsyncSocketBase
 public:
     AsyncServerSocket();
     AsyncServerSocket(libext::EventBase* evb);
+    //防止浅拷贝
+    AsyncServerSocket(AsyncServerSocket&&) = delete;
+    AsyncServerSocket(AsyncServerSocket) = delete;
+    AsyncServerSocket operator = (AsyncServerSocket) = delete;
     ~AsyncServerSocket();
     enum MessageType
     {
@@ -73,6 +78,7 @@ public:
 
 
     int  createSocket();
+    bool setupSocket(int family, int fd)
     bool bind(libext::SocketAddr& addr);
     bool listen(int backlog);
     void startAccepting();
@@ -119,6 +125,7 @@ private:
     int callbackIndex_{0};
     int32_t maxInQueue_;
     bool accepted_;
+    bool reusePort_;
 };
 
 }//libext

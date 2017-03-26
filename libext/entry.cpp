@@ -5,4 +5,5 @@ int main()
 {
     ServerBootstrap server;
     server.bind(8888); 
+    sleep(5000);
 }

@@ -5,6 +5,7 @@ namespace libext
 AsyncServerSocket::AsyncServerSocket()
 : maxInQueue_(kDefaultMessagesInQueue)
 , accepted_(false)
+, reusePort_(false)
 {
 }
 
@@ -22,10 +23,75 @@ int AsyncServerSocket::createSocket()
     int fd;
     if( (fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
-        return -1;
+        std::cout<<"createSocket faild "<<strerror(errno)<<std::endl;
+        throw std::logic_error("createSocket faild");
+    }
+    try
+    {
+        setupSocket(AF_INET, fd)
+    }catch(...)
+    {
+        std::cout<<"setupSocket faild"<<std::endl;
+        closeNoInt(fd);
+        throw;
+    }
+    return fd;
+}
+
+void AsyncServerSocket::setupSocket(int family, int fd)
+{
+    //设置socket为非阻塞
+    if(!fcntl(fd, F_SETFL, O_NONBLOCK))
+    {
+        throw std::exception("setupSocket fcnt faild to set socket to non-bloking");
+    }
+    
+    //设置端口可重用，防止2MSL延迟阻止服务重启
+    int one = 1;
+    int zero = 0;
+    if(setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) != 0)
+    {
+        //不是致命错误，只打印错误日志继续运行
+        std::cout<<"setupSocket faild to set SO_REUSEADDR on asyn socket" \
+            <<strerror(errno)<<std::endl;
+    }
+   
+    //端口重用，支持多线程多个accept线程 
+    if(reusePort_ && 
+           setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one)) != 0)
+    {
+        std::cout<<"setupSocket faild to set SO_REUSEPORT on asyn socket" \ 
+            <<strerror(errno)<<std::endl;
     }
 
-    return fd;
+    //set keepAlive
+    if(setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, 
+                keepAlive_ ? one : zero, sizeof(int) != 0))
+    {
+        std::cout<<"setupSocket faild to set SO_KEEPALIVE on asyn socket" \ 
+            <<strerror(errno)<<std::endl;
+    }
+#ifndef TCP_NOPUSH
+    if(family != AF_UNIX)
+    {
+        //TCP_NODELAY禁用Nagle算法，使得数据能够快速的发送出去，但是
+        //当每次发送的包很小是则可能引起网络拥塞,比如发送的内容就一个字节
+        //但是TCP/IP协议层会构造40字节的头数据，造成负载过大,Nagle算法能解决这种问题
+        //但是Nagle在发送大数据的时候会造成副作用
+        //https://en.wikipedia.org/wiki/Nagle's_algorithm
+        //这里禁用Nagle算法，必须确保一次传输的数据量比较大，否则会造成网络拥塞
+        if(setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one)) != 0)
+        {
+            std::cout<<"setupSocket faild to set TCP_NODELAY on asyn socket" \
+                <<strerror(errno)<<std::endl;
+        }
+    }
+#endif
+  
+//开启tcp fast open选项 
+#ifdef LIBEXT_ALLOW_TFO
+#endif 
+            
 }
 
 bool AsyncServerSocket::bind(libext::SocketAddr& addr)
@@ -149,7 +215,8 @@ void AsyncServerSocket::setReusePortEnable(bool reuse)
         {
             //LOG_ERR 设置socket选项失败
         }
-    }    
+    }
+    reusePort_ = reuse; 
 }
 
 void AsyncServerSocket::handlerReady()
