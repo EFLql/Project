@@ -45,6 +45,14 @@ public:
     //lql-need modify
     class AcceptCallback
     {
+    public:
+        AcceptCallback() {}
+        virtual ~AcceptCallback() = default;
+
+        virtual void connectionAccepted(int fd,
+                                        const SocketAddr& clientAddr) = 0;
+        virtual void acceptError(const std::exception& e) = 0;
+        virtual void acceptStarted() {}
     };
     //lql-need modify
     class RemoteAcceptor : public libext::NotificationQueue<QueueMessage>::Consumer

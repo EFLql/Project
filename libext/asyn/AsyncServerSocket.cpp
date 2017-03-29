@@ -90,6 +90,7 @@ void AsyncServerSocket::setupSocket(int family, int fd)
   
 //开启tcp fast open选项 
 #ifdef LIBEXT_ALLOW_TFO
+    //lql-need add
 #endif 
             
 }
@@ -315,6 +316,28 @@ void AsyncServerSocket::RemoteAcceptor::stop(libext::EventBase* evb)
 void AsyncServerSocket::RemoteAcceptor::messageAvailable(QueueMessage&& msg)
 {
     std::cout<<"Accepted client socket= "<<msg.socket<<std::endl;
+    switch(msg.type)
+    {
+        case MessageType::MSG_NEW_CONN:
+        {
+           callback_->connectionAccepted(msg.socket, msg.addr); 
+           break;
+        }
+        case MessageType::MSG_ERROR:
+        {
+            std::runtime_error ex("Accept error");
+            callback_->acceptError(ex);
+            break;
+        }
+        default:
+        {
+            std::cout<<"invalid accept notification message type "
+               <<msg.type<<std::endl; 
+            std::runtime_error ex("Accept error");
+            callback_->acceptError(ex);
+            break;
+        }
+    }
 }
 
 } //libext
