@@ -3,7 +3,7 @@
 #include <libext/ThreadPool/ThreadFactory.h>
 #include <libext/ThreadPool/Task.h>
 #include <libext/lock/RWLock.h>
-#include <libext/detail/Cache.h>
+#include <libext/detail/CacheLocality.h>
 #include <libext/Semaphore.h>
 #include <libext/ThreadPool/BlockingQueue.h>
 #include <vector>

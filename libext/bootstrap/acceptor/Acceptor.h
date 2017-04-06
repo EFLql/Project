@@ -23,7 +23,7 @@ public:
     
     void connectionAccepted(int fd,
                             const SocketAddr& clientAddr) override;
-    void acceptError(std::exception& e) override;
+    void acceptError(const std::exception& e) override;
     void acceptStarted() override;
     void onDoneAcceptingConnection(int fd, 
                                    const SocketAddr& clientAddr,

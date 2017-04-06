@@ -28,7 +28,7 @@ int AsyncServerSocket::createSocket()
     }
     try
     {
-        setupSocket(AF_INET, fd)
+        setupSocket(AF_INET, fd);
     }catch(...)
     {
         std::cout<<"setupSocket faild"<<std::endl;
@@ -43,7 +43,7 @@ void AsyncServerSocket::setupSocket(int family, int fd)
     //设置socket为非阻塞
     if(!fcntl(fd, F_SETFL, O_NONBLOCK))
     {
-        throw std::exception("setupSocket fcnt faild to set socket to non-bloking");
+        throw std::logic_error("setupSocket fcnt faild to set socket to non-bloking");
     }
     
     //设置端口可重用，防止2MSL延迟阻止服务重启
@@ -66,7 +66,7 @@ void AsyncServerSocket::setupSocket(int family, int fd)
 
     //set keepAlive
     if(setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, 
-                keepAlive_ ? one : zero, sizeof(int) != 0))
+                keepAlive_ ? &one : &zero, sizeof(int) != 0))
     {
         std::cout<<"setupSocket faild to set SO_KEEPALIVE on asyn socket" \ 
             <<strerror(errno)<<std::endl;

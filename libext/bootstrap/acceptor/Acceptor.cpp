@@ -1,5 +1,8 @@
-#include <libext/bootstrap/acceptor/acceptor.h>
+#include <libext/bootstrap/acceptor/Acceptor.h>
+#include <libext/asyn/AsyncSocket.h>
 
+namespace libext
+{
 void Acceptor::init(EventBase* evb)
 {
         CHECK(base_ == NULL || evb == base_);
@@ -42,13 +45,17 @@ void Acceptor::processEstablishedConnection(int fd,
         tinfo.secure = false;
         tinfo.acceptTime = acceptTime;
         //new AsyncSocket
+        AsyncSocket sock(base_, fd);
+
     }
 }
 
-void Acceptor::acceptError(std::exception& e)
+void Acceptor::acceptError(const std::exception& e)
 {
 }
 
 void Acceptor::acceptStarted()
 {
 }
+
+} //libext

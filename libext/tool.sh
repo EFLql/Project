@@ -1,1 +1,1 @@
-find . -name "*.[h,cpp]" | xargs wc -l
+find . \( -name '*.h' -o -name '*.cpp' \) | xargs wc -l

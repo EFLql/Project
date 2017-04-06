@@ -1,4 +1,5 @@
 #pragma once
+#include <chrono>
 
 namespace libext
 {
@@ -8,7 +9,7 @@ struct TransportInfo
     std::chrono::steady_clock::time_point acceptTime{};
 
     //连接RTT(Round-trip time)
-    std::chrono::microsends rtt{0};
+    std::chrono::microseconds rtt{0};
 
     bool secure;
     //lql-need add......

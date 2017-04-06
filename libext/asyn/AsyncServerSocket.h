@@ -10,6 +10,8 @@
 #include <errno.h>
 #include <vector>
 #include <exception>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 
 namespace libext
 {
@@ -19,8 +21,8 @@ public:
     AsyncServerSocket();
     AsyncServerSocket(libext::EventBase* evb);
     //防止浅拷贝
-    AsyncServerSocket(AsyncServerSocket&&) = delete;
-    AsyncServerSocket(AsyncServerSocket) = delete;
+    AsyncServerSocket(const AsyncServerSocket&&) = delete;
+    AsyncServerSocket(const AsyncServerSocket& ) = delete;
     AsyncServerSocket operator = (AsyncServerSocket) = delete;
     ~AsyncServerSocket();
     enum MessageType
@@ -86,7 +88,7 @@ public:
 
 
     int  createSocket();
-    bool setupSocket(int family, int fd)
+    void setupSocket(int family, int fd);
     bool bind(libext::SocketAddr& addr);
     bool listen(int backlog);
     void startAccepting();
@@ -134,6 +136,7 @@ private:
     int32_t maxInQueue_;
     bool accepted_;
     bool reusePort_;
+    bool keepAlive_ {false};
 };
 
 }//libext
