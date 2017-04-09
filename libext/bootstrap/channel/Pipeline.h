@@ -1,5 +1,7 @@
 #pragma oce
 #include <libext/bootstrap/channel/HandlerContext.h>
+#include <libext/io/IOBufQueue.h>
+#include <libext/io/IOBuf.h>
 #include <glog/logging.h>
 #include <algorithm>
 #include <memory>
@@ -118,6 +120,16 @@ private:
     libext::InboundLink<R>* front_{NULL};//链表头,如果有删除操作会有bug
     libext::OutboundLink<R>* back_{NULL};//链表尾,如果有删除操作会有bug
 };
+
+template <class Pipeline>
+class PipelineFactory
+{
+public:
+    virtual typename Pipeline::Ptr newPipeline() = 0;
+    virtual ~PipelineFactory() = default;
+};
+
+typedef Pipeline<IOBufQueue&, std::unique_ptr<IOBuf>> DefaultPipeline;
 
 } //libext namespace
 

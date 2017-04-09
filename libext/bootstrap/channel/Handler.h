@@ -1,5 +1,7 @@
 #pragma once
 #include <libext/bootstrap/channel/HandlerContext.h>
+#include <libext/io/IOBufQueue.h>
+#include <libext/io/IOBuf.h>
 
 namespace libext
 {
@@ -125,5 +127,14 @@ public:
         ctx->fireWrite(std::forward<W>(msg));//不做处理,直接转发给下一个ctx处理
     }
 };
+
+typedef HandlerAdapter<libext::IOBufQueue&, std::unique_ptr<libext::IOBuf>>
+BytesToBytesHandler;
+
+typedef InboundHandler<libext::IOBufQueue&, std::unique_ptr<libext::IOBuf>>
+InboundBytesToBytesHandler;
+
+typedef OutboundHandler<libext::IOBufQueue&, std::unique_ptr<libext::IOBuf>>
+OutboundBytesToBytesHandler;
 
 } //libext

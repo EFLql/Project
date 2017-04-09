@@ -55,6 +55,7 @@ public:
                                         const SocketAddr& clientAddr) = 0;
         virtual void acceptError(const std::exception& e) = 0;
         virtual void acceptStarted() {}
+        virtual void acceptStoped() {}
     };
     //lql-need modify
     class RemoteAcceptor : public libext::NotificationQueue<QueueMessage>::Consumer

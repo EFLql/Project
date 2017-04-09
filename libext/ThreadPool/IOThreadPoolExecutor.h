@@ -3,7 +3,7 @@
 #include <libext/asyn/EventBase.h>
 #include <libext/EventBaseManger.h>
 #include <libext/lock/RWLock.h>
-#include <libext/detail/Cache.h>
+#include <libext/detail/CacheLocality.h>
 
 namespace libext
 {

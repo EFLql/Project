@@ -3,17 +3,93 @@
 #include <libext/ThreadPool/IOThreadPoolExecutor.h>
 #include <libext/bootstrap/ServerSocketFactory.h>
 #include <libext/lock/SpinLock.h>
+#include <libext/bootstrap/channel/Pipeline.h>
 #include <map>
 #include <memory>
 namespace libext
 {
-class ServerAcceptor : public Acceptor
+template <typename Pipeline>
+class ServerAcceptor
+    : public Acceptor
+    //, public InboundHandler<>
 {
+public:
+    class ServerConnection 
+        : public libext::PipelineManager
+        , libext::ManagedConnection
+    {
+    public:
+        ServerConnection(typename Pipeline::Ptr pipeline)
+            : pipeline_(std::move(pipeline))
+        {
+            pipeline_->setPipelineManager(this);
+        }
+        ~ServerConnection()
+        {
+            pipeline_->setPipelineManager(NULL);
+        }
+        void init()
+        {
+            pipeline_->transportActive();
+        }
+        /*ManagedConnection extend....
+        *连接超时，丢弃连接等
+        *
+        *lql-need add code...
+        */
+    private:
+        typename Pipeline::Ptr pipeline_;//处理连接请求pipeline
+    };
+    ServerAcceptor(
+        std::shared_ptr<PipelineFactory<DefaultPipeline>> childPipelineFactory)
+        : childPipelineFactory_(childPipelineFactory)
+    {
+    }
+    ~ServerAcceptor() = default;
+    void onNewConnection(
+            AsyncTransport::UniquePtr sock,
+            const SocketAddr& clientAddr,
+            SecureTransportType secureTransportType,
+            TransportInfo& tinfo) override
+    {
+        //利用自定以的工厂创建自定义的pipeline
+        auto pipeline = childPipelineFactory_.newPipeline();
+        ServerConnection* connect = NULL;
+        try
+        {
+            connect = new ServerConnection(std::move(pipeline));
+        }catch(const std::bad_alloc& e)
+        {
+            //lql-ERR
+            std::cout<<"new ServerConnection faild "<<e.what()<<std::endl;
+            throw std::runtime_error("new ServerConnection faild");
+        }
+        Acceptor::addConnection(connect);
+        connect->init();
+    }
+private:
+    std::shared_ptr<PipelineFactory<Pipeline>> childPipelineFactory_;
 };
 
-
+template <typename Pipeline>
 class ServerAcceptorFactory : public AcceptorFactory
 {
+public:
+    ServerAcceptorFactory(
+        std::shared_ptr<PipelineFactory<Pipeline>> childPipelineFactory)
+        : childPipelineFactory_(childPipelineFactory)
+    {
+    }
+    ~ServerAcceptorFactory() = default;
+    std::shared_ptr<Acceptor> newAcceptor(EventBase* evb)
+    {
+       auto acceptor = std::make_shared<ServerAcceptor<Pipeline>>(
+           childPipelineFactory_);
+       acceptor->init(evb);
+       return acceptor;
+    }
+private:
+    std::shared_ptr<PipelineFactory<Pipeline>> childPipelineFactory_;
 };
 
 class ServerWorkerPool : public ThreadPoolExecutor::Observer
@@ -69,13 +145,19 @@ public:
     {
         socketFactory_ = factory;
     }
+    ServerBootstrap* childPipeline(
+            std::shared_ptr<PipelineFactory<DefaultPipeline>> childPipelineFactory)
+    {
+        childPipelineFactory_ = std::move(childPipelineFactory);
+    }
 private:
     std::vector<std::shared_ptr<AsyncSocketBase>> sockets_;
     std::shared_ptr<ServerSocketFactory> socketFactory_;
-    std::shared_ptr<ServerAcceptorFactory> acceptorFactory_;
+    std::shared_ptr<ServerAcceptorFactory<DefaultPipeline>> acceptorFactory_;
     std::shared_ptr<ServerWorkerPool> workFactory_;
     std::shared_ptr<libext::IOThreadPoolExecutor> io_group_;
     std::shared_ptr<libext::IOThreadPoolExecutor> accept_group_;
+    std::shared_ptr<PipelineFactory<DefaultPipeline>> childPipelineFactory_;
     bool reusePort_;
 };
 
