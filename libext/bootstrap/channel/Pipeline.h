@@ -121,7 +121,7 @@ private:
     libext::OutboundLink<R>* back_{NULL};//链表尾,如果有删除操作会有bug
 };
 
-template <class Pipeline>
+template <typename Pipeline>
 class PipelineFactory
 {
 public:
