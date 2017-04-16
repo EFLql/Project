@@ -14,8 +14,8 @@ public:
 
     virtual void fireRead(In msg) = 0;
     virtual void fireReadEOF() = 0;
-    virtual void firetransportActive() = 0;
-    virtual void firetransportInActive() = 0;
+    virtual void fireTransportActive() = 0;
+    virtual void fireTransportInActive() = 0;
     virtual void fireWrite(Out msg) = 0;
     virtual void fireClose() = 0;
 
@@ -30,8 +30,8 @@ public:
 
     virtual void fireRead(In msg) = 0;
     virtual void fireReadEOF() = 0;
-    virtual void firetransportActive() = 0;
-    virtual void firetransportInActive() = 0;
+    virtual void fireTransportActive() = 0;
+    virtual void fireTransportInActive() = 0;
 
     virtual PipelineBase* getPipeline() = 0;
 };

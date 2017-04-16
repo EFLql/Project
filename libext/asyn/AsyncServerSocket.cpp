@@ -41,7 +41,7 @@ int AsyncServerSocket::createSocket()
 void AsyncServerSocket::setupSocket(int family, int fd)
 {
     //设置socket为非阻塞
-    if(!fcntl(fd, F_SETFL, O_NONBLOCK))
+    if(fcntl(fd, F_SETFL, O_NONBLOCK) != 0)
     {
         throw std::logic_error("setupSocket fcnt faild to set socket to non-bloking");
     }

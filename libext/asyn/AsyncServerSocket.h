@@ -113,7 +113,7 @@ private:
             evb_(evb),
             parent_(parent)
         {}
-        void handlerReady() override
+        void handlerReady(int16_t event) override
         {
             parent_->handlerReady();
         }

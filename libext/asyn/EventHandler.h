@@ -23,11 +23,11 @@ public:
     void setEventBase(EventBase* evb);
     void attachEventBase(EventBase* evb);
     void detachEventBase();
-    bool registHandler(int32_t eventtype, bool internal = false);
+    bool registHandler(int16_t eventtype, bool internal = false);
     bool isHandlerRegisted();
     void unregisterHandler();
     static void libeventCallback(int socket, int16_t event, void* arg); 
-    virtual void handlerReady() = 0; 
+    virtual void handlerReady(int16_t event) = 0; 
 private:
     EventBase* evb_;
     struct event event_;

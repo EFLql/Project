@@ -22,7 +22,7 @@ template <class H>
 PipelineBase& PipelineBase::addFront(H&& handler)
 {
     typedef typename ContextType<H>::type Context;
-    return addHelper(std::make_shared<Context>(shared_from_this(), handler), true); 
+    return addFront(std::make_shared<H>(handler));
 }
 
 template <class H>
@@ -43,7 +43,7 @@ template <class H>
 PipelineBase& PipelineBase::addBack(H&& handler)
 {
     typedef typename ContextType<H>::type Context;
-    return addHelper(std::make_shared<Context>(shared_from_this(), handler), false); 
+    return addBack(std::make_shared<H>(handler));
 }
 
 template <class H>
@@ -88,7 +88,19 @@ PipelineBase& PipelineBase::removeHelper(H* handler, bool checkEqual)
     typedef typename ContextType<H>::type Context;
     //ctxs_中删除
     std::vector<std::shared_ptr<PipelineContext>>::iterator itr;
-    for(itr = ctxs_.begin(); itr != ctxs_.end(); )
+    auto unaryPredicate = [&] (auto pipelineCtx) {
+       auto ctx = std::dynamic_pointer_cast<Context>(pipelineCtx); 
+       if(ctx && (!checkEqual || ctx->getHandler() == handler)) {
+           removed = true;
+           return true;
+       }
+    };
+
+    ctxs_.erase(
+            std::remove_if(ctxs_.begin(), ctxs_.end(), unaryPredicate),
+            ctxs_.end());
+
+    /*for(itr = ctxs_.begin(); itr != ctxs_.end(); )
     {
         Context* ctx = dynamic_cast<Context*>(*itr);
         if(ctx && (!checkEqual || ctx->getHandler() == handler))
@@ -104,7 +116,7 @@ PipelineBase& PipelineBase::removeHelper(H* handler, bool checkEqual)
         {
             ++itr;
         }
-    }
+    }*/
 
     if(!removed)
     {
@@ -192,7 +204,7 @@ void Pipeline<R, W>::finalize()
     if(!back_)
     {
         //LOG-WARN
-        std::cout<<"No inbound handler in pipeline, inbound operation will throw \
+        std::cout<<"No outbound handler in pipeline, inbound operation will throw \
             std::invalid_argument"<<std::endl;
     }
 }

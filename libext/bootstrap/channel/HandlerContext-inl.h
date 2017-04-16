@@ -115,7 +115,7 @@ public:
         return H::dir;
     }
 
-private:
+protected:
     Context* impl_;
     std::shared_ptr<H> handler_;
     std::weak_ptr<PipelineBase> pipelineWeak_;
@@ -144,7 +144,7 @@ public:
                         std::shared_ptr<H> handler)
     {
         this->impl_ = this;
-        initialize(pipeline, std::move(handler));
+        this->initialize(pipeline, std::move(handler));
     }
     
     //for staticPipeline
@@ -172,7 +172,7 @@ public:
     {
         if(this->nextIn_)
         {
-            this->nextIn_->ReadEOF();
+            this->nextIn_->readEOF();
         }
         else
         {
@@ -230,11 +230,11 @@ public:
     }
     void readEOF() override
     {
-        this->handler_->readEOF();
+        this->handler_->readEOF(this);
     }
     void transportActive() override
     {
-        this->handler_->transportActive();
+        this->handler_->transportActive(this);
     }
     void transportInActive() override
     {
@@ -248,7 +248,7 @@ public:
     }
     void close() override
     {
-        this->handler_->close();
+        this->handler_->close(this);
     }
 
 };
@@ -269,12 +269,12 @@ public:
             std::shared_ptr<H> handler)
     {
         this->impl_ = this;
-        initialize(pipeline, handler);
+        this->initialize(pipeline, handler);
     }
     ~InboundContextImpl() = default;
 
     //InboundhandlerContext override
-    void fireRead(Rout msg)
+    void fireRead(Rout msg) override
     {
         if(this->nextIn_)
         {
@@ -286,7 +286,7 @@ public:
             std::cout<<"read reached end of pipeline"<<std::endl;
         }
     }
-    void fireReadEOF()
+    void fireReadEOF() override
     {
         if(this->nextIn_)
         {
@@ -298,39 +298,39 @@ public:
             std::cout<<"readEOF reached end of pipeline"<<std::endl;
         }
     }
-    void fireTransportActive()
+    void fireTransportActive() override
     {
         if(this->nextIn_)
         {
             this->nextIn_->transportActive();
         }
     }
-    void fireTransportInActive()
+    void fireTransportInActive() override
     {
         if(this->nextIn_)
         {
-            this->nextIn_->transportInActive(this);
+            this->nextIn_->transportInActive();
         }
     }
-    PipelineBase* getPipeline()
+    PipelineBase* getPipeline() override
     {
         return this->pipelineRaw_;
     }
     
     //InboundLink override
-    void read(Rin msg)
+    void read(Rin msg) override
     {
         this->handler_->read(this, std::forward<Rin>(msg));
     }
-    void readEOF()
+    void readEOF() override
     {
         this->handler_->readEOF(this);
     }
-    void transportActive()
+    void transportActive() override
     {
         this->handler_->transportActive(this);
     }
-    void transportInActive()
+    void transportInActive() override
     {
         this->handler_->transportInActive(this);
     }
@@ -353,12 +353,12 @@ public:
             std::shared_ptr<H> handler)
     {
         this->impl_ = this;
-        initialize(pipeline, handler);
+        this->initialize(pipeline, handler);
     }
     ~OutboundContextImpl() = default;
 
     //InboundhandlerContext override
-    void fireWrite(Wout msg)
+    void fireWrite(Wout msg) override
     {
         if(this->nextIn_)
         {
@@ -370,7 +370,7 @@ public:
             std::cout<<"read reached end of pipeline"<<std::endl;
         }
     }
-    void fireClose()
+    void fireClose() override
     {
         if(this->nextOut_)
         {
@@ -382,17 +382,17 @@ public:
             std::cout<<"readEOF reached end of pipeline"<<std::endl;
         }
     }
-    PipelineBase* getPipeline()
+    PipelineBase* getPipeline() override
     {
         return this->pipelineRaw_;
     }
     
     //OutboundLink override
-    void write(Win msg)
+    void write(Win msg) override
     {
         this->handler_->write(this, std::forward<Win>(msg));
     }
-    void close()
+    void close() override
     {
         this->handler_->close(this);
     }

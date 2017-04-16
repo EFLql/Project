@@ -26,7 +26,7 @@ public:
        ~Consumer() {}
 
        void init(EventBase* evb, NotificationQueue* queue);
-       void handlerReady() override;
+       void handlerReady(int16_t event) override;
        bool consumeUntilDrained();
        virtual void messageAvailable(MessageT&& msg) = 0;
        void startConsuming(EventBase* evb, NotificationQueue* queue)
@@ -328,7 +328,7 @@ void NotificationQueue<MessageT>::Consumer::init(EventBase* evb, NotificationQue
 }
 
 template<typename MessageT>
-void NotificationQueue<MessageT>::Consumer::handlerReady()
+void NotificationQueue<MessageT>::Consumer::handlerReady(int16_t event)
 {
     consumeMessages(false);
 }

@@ -10,6 +10,7 @@
 
 namespace libext
 {
+class AsyncTransport;
 class PipelineContext;
 class PipelineManager
 {
@@ -99,7 +100,7 @@ public:
         return std::shared_ptr<Pipeline>(new Pipeline());
     }
 
-    ~Pipeline();
+    ~Pipeline() = default;
 
     void read(R msg);
     void readEOF();
@@ -118,14 +119,14 @@ protected:
 private:
     bool isStatic_{false};
     libext::InboundLink<R>* front_{NULL};//链表头,如果有删除操作会有bug
-    libext::OutboundLink<R>* back_{NULL};//链表尾,如果有删除操作会有bug
+    libext::OutboundLink<W>* back_{NULL};//链表尾,如果有删除操作会有bug
 };
 
 template <typename Pipeline>
 class PipelineFactory
 {
 public:
-    virtual typename Pipeline::Ptr newPipeline() = 0;
+    virtual typename Pipeline::Ptr newPipeline(std::shared_ptr<AsyncTransport>) = 0;
     virtual ~PipelineFactory() = default;
 };
 

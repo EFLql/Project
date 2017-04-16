@@ -83,7 +83,7 @@ public:
     AcceptorFactory() {}
     ~AcceptorFactory() {}
 
-    std::shared_ptr<Acceptor> newAcceptor(EventBase* evb)
+    virtual std::shared_ptr<Acceptor> newAcceptor(EventBase* evb)
     {
         std::shared_ptr<Acceptor> acceptor = std::make_shared<Acceptor>();
         acceptor->init(evb);

@@ -93,7 +93,7 @@ public:
 };
 
 template <class Win, class Wout = Win>
-class OutboundHandler : public HandlerBase<OutbundHandlerContext<Wout>>
+class OutboundHandler : public HandlerBase<OutboundHandlerContext<Wout>>
 {
 public:
     static const HandlerDir dir = HandlerDir::OUT;
@@ -113,16 +113,16 @@ public:
 };
 
 template <class R, class W>
-class HandlerAdapter : publc Handler<R, R, W, W>
+class HandlerAdapter : public Handler<R, R, W, W>
 {
 public:
-    typename Handler<R, R, W, W>::Context Context;
+    typedef typename Handler<R, R, W, W>::Context Context;
 
-    void read(Context* ctx, R msg)
+    void read(Context* ctx, R msg) override
     {
         ctx->fireRead(std::forward<R>(msg));//不做处理,直接转发
     }
-    void write(Context* ctx, W msg)
+    void write(Context* ctx, W msg) override
     {
         ctx->fireWrite(std::forward<W>(msg));//不做处理,直接转发给下一个ctx处理
     }

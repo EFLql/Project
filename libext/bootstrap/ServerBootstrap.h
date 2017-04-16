@@ -16,7 +16,7 @@ class ServerAcceptor
 public:
     class ServerConnection 
         : public libext::PipelineManager
-        , libext::ManagedConnection
+        , public ManagedConnection
     {
     public:
         ServerConnection(typename Pipeline::Ptr pipeline)
@@ -52,8 +52,10 @@ public:
             SecureTransportType secureTransportType,
             TransportInfo& tinfo) override
     {
+        std::cout<<"ServerAcceptor::onNewConnection ready"<<std::endl;
         //利用自定以的工厂创建自定义的pipeline
-        auto pipeline = childPipelineFactory_.newPipeline();
+        auto pipeline = childPipelineFactory_->newPipeline(
+                std::shared_ptr<AsyncTransport>(sock.release()));
         ServerConnection* connect = NULL;
         try
         {
@@ -64,7 +66,7 @@ public:
             std::cout<<"new ServerConnection faild "<<e.what()<<std::endl;
             throw std::runtime_error("new ServerConnection faild");
         }
-        Acceptor::addConnection(connect);
+        Acceptor::addConnection(static_cast<ManagedConnection*>(connect));
         connect->init();
     }
 private:
@@ -81,7 +83,7 @@ public:
     {
     }
     ~ServerAcceptorFactory() = default;
-    std::shared_ptr<Acceptor> newAcceptor(EventBase* evb)
+    std::shared_ptr<Acceptor> newAcceptor(EventBase* evb) override
     {
        auto acceptor = std::make_shared<ServerAcceptor<Pipeline>>(
            childPipelineFactory_);
@@ -114,8 +116,14 @@ public:
         threadStoped(thread);
     }
     template<typename F>
-    void forEachWork(F&& f);
-
+    void forEachWork(F&& f)
+    {
+        libext::SpinLockGuard g(spinLock_);
+        for(auto& woker : *worker_)
+        {
+            f(woker.second.get()); 
+        }
+    }
 private:
     //c++11 using could replace typedef
     //using WorkerMap = std::map<ThreadPtr, std::shared_ptr<Acceptor>>;
@@ -129,12 +137,12 @@ private:
 
 };
 
+template <typename Pipeline>
 class ServerBootstrap
 {
 public:
-    ServerBootstrap();
-    ~ServerBootstrap();
-
+    ServerBootstrap() : reusePort_(false) {}
+    ~ServerBootstrap() {}
     void bind(int port);
     void bind(libext::SocketAddr& addr);
     void group(std::shared_ptr<IOThreadPoolExecutor> io_group);
@@ -146,7 +154,7 @@ public:
         socketFactory_ = factory;
     }
     ServerBootstrap* childPipeline(
-            std::shared_ptr<PipelineFactory<DefaultPipeline>> childPipelineFactory)
+            std::shared_ptr<PipelineFactory<Pipeline>> childPipelineFactory)
     {
         childPipelineFactory_ = std::move(childPipelineFactory);
     }
@@ -157,9 +165,10 @@ private:
     std::shared_ptr<ServerWorkerPool> workFactory_;
     std::shared_ptr<libext::IOThreadPoolExecutor> io_group_;
     std::shared_ptr<libext::IOThreadPoolExecutor> accept_group_;
-    std::shared_ptr<PipelineFactory<DefaultPipeline>> childPipelineFactory_;
+    std::shared_ptr<PipelineFactory<Pipeline>> childPipelineFactory_;
     bool reusePort_;
 };
 
-
 }//libext
+
+#include <libext/bootstrap/ServerBootstrap-inl.h>

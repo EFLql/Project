@@ -41,7 +41,7 @@ void EventHandler::detachEventBase()
     event_.ev_base = NULL;
 }
 
-bool EventHandler::registHandler(int32_t eventtype, bool internal)
+bool EventHandler::registHandler(int16_t eventtype, bool internal)
 {
     if(isHandlerRegisted())
     {
@@ -66,6 +66,7 @@ bool EventHandler::registHandler(int32_t eventtype, bool internal)
              NULL ))      //struct timeval*
     {
         event_del(&event_);
+        return false;
     }
 
     return true;
@@ -94,7 +95,7 @@ void EventHandler::libeventCallback(int socket, int16_t event, void* arg)
     EventHandler* pthis = (EventHandler*) arg;
     assert(pthis->event_.ev_fd == socket);
     
-    pthis->handlerReady();
+    pthis->handlerReady(event);
 
     std::cout<<"libevent run"<<std::endl;
 }
