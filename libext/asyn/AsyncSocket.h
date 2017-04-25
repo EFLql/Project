@@ -3,7 +3,9 @@
 #include <libext/asyn/AsyncTransport.h>
 #include <libext/asyn/EventHandler.h>
 #include <libext/asyn/EventBase.h>
+#include <libext/asyn/AsyncSocketException.h>
 #include <memory>
+#include <string>
 
 namespace libext
 {
@@ -15,7 +17,22 @@ public:
     typedef std::unique_ptr<AsyncSocket> UniquePtr;
     AsyncSocket(EventBase* evb, int fd);
     AsyncSocket();
+    AsyncSocket(EventBase* evb, const SocketAddr& addr,
+            uint32_t connectTimeout);
+    AsyncSocket(EventBase* evb, const std::string& ip,
+            uint16_t port, uint32_t connectTimeout);
+
     ~AsyncSocket();
+    class ConnectCallback
+    {
+    public:
+        virtual ~ConnectCallback() = default;
+
+        virtual void connectSucc() noexcept = 0;
+        virtual void connectErr(
+                const AsyncSocketException& ex) noexcept = 0;
+    };
+
     void setMaxReadsPerEvent(uint16_t maxReads)
     {
         maxReadsPerEvent_ = maxReads;
@@ -52,11 +69,20 @@ public:
 
     bool updateEventRegistration();
     void invalidState(ReadCallback* callback);
+    void invalidState(ConnectCallback* callback);
     void attacheEventBase(EventBase* base);
     void detachEventBase();
+    void connect(ConnectCallback* callback, const SocketAddr& addr,
+            uint32_t connectTimeout) noexcept;
+    void connect(ConnectCallback* callback, const std::string& ip,
+            uint16_t port, uint32_t connectTimeout) noexcept;
+private:
+    void failConnect(const AsyncSocketException& ex);
+    void socketConnect(const SocketAddr& addr);
 private:
     uint16_t maxReadsPerEvent_;
     ReadCallback* readCallback_;
+    ConnectCallback* connectCallback_;
     //underlying file descriptor
     int fd_;
     EventBase* eventBase_;

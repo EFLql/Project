@@ -44,14 +44,16 @@ public:
         exMsg.append(messgae); 
         exMsg.append(" type = ( ");
         exMsg.append(getMessage(type));
-        stext[0] = 0;
-        itoa(errno_copy, stext, 10);
-        exMsg.append(" ) errno= ");
-        exMsg.append(stext);
-        exMsg.append(" ( ");
-        exMsg.append(strerror(errno_copy));
-        exMsg.append(" ) ");
-        
+        if(errno_copy != 0)
+        {
+            stext[0] = 0;
+            itoa(errno_copy, stext, 10);
+            exMsg.append(" ) errno= ");
+            exMsg.append(stext);
+            exMsg.append(" ( ");
+            exMsg.append(strerror(errno_copy));
+            exMsg.append(" ) ");
+        } 
         return std::move(exMsg);
     }
 

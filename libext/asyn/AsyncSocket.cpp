@@ -1,6 +1,9 @@
 #include <libext/asyn/AsyncSocket.h>
 #include <assert.h>
 #include <iostream>
+#include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 namespace libext
 {
@@ -27,9 +30,108 @@ AsyncSocket::AsyncSocket()
 {
 
 }
+AsyncSocket(EventBase* evb, const SocketAddr& addr,
+            uint32_t connectTimeout)
+    :AsyncSocket(evb)
+
+{
+    connect(NULL, addr, connectTimeout);
+}
+
+AsyncSocket(EventBase* evb, const std::string& ip,
+            uint16_t port, uint32_t connectTimeout)
+    :AsyncSocket(evb)
+{
+    connect(NULL, SocketAddr(ip, port), connectTimeout);
+}
+
 
 AsyncSocket::~AsyncSocket()
 {
+}
+
+void connect(ConnectCallback* callback, const SocketAddr& addr,
+            uint32_t connectTimeout) noexcept
+{
+    assert(eventBase_->isRunningEventBase());
+    if(state_ != StateEnum::UNINT)
+    {
+        return invalidState(callback);
+    }
+
+    connectCallback_ = callback;
+    //
+    assert(fd_ == -1);
+
+    try
+    {
+        fd_ = socket(AF_INET, SOCK_STREAM, 0);
+        if(fd_ < 0)
+        {
+            throw AsyncSocketException(
+                    AsyncSocketException::INTERNAL_ERROR,
+                    "Create socket failed",
+                     errno);
+        }
+        //设置socket属性为非阻塞模式
+        int flags = fcntl(fd_, F_GETFD, 0);
+        if(flags < 0)
+        {
+            throw AsyncSocketException(
+                    AsyncSocketException::INTERNAL_ERROR,
+                    "Get flag failed on socket",
+                     errno);
+        }
+        if(fcntl(fd_, F_SETFL, flags | O_NONBLOCK) < 0)
+        {
+            throw AsyncSocketException(
+                    AsyncSocketException::INTERNAL_ERROR,
+                    "Set NONBLOCK failed on socket",
+                     errno);
+        }
+        //connect
+        socketConnect(addr);
+        
+    }catch (const AsyncSocketException& ex)
+    {
+    }
+}
+
+void connect(ConnectCallback* callback, const std::string& ip,
+            uint16_t port, uint32_t connectTimeout) noexcept
+{
+    try
+    {
+        connect(callback, SocketAddr(ip, port), connectTimeout);
+    }catch(const std::exception& ex)
+    {
+        AsyncSocketException tex(
+                AsyncSocketException::INTERNAL_ERROR,
+                ex.what());
+        failConnect(tex);
+    }
+}
+
+void AsyncSocket::socketConnect(const SocketAddr& addr)
+{
+    assert(fd_ != -1);
+    int ret = ::connect(fd_, 
+                        (struct sockaddr*)&addr.getSocketAddr(),
+                        sizeof(addr.getSocketAddr()));
+    if(ret < 0)
+    {
+        if(errno == EINPROGRESS)//异步模式下连接正在进行
+        {
+        }
+        else
+        {
+            throw AsyncSocketException(
+                    AsyncSocketException::INTERNAL_ERROR,
+                    "connect server failed",
+                    errno);
+        }
+    }
+
 }
 
 void AsyncSocket::setReadCB(ReadCallback* readCB)
@@ -102,6 +204,18 @@ bool AsyncSocket::updateEventRegistration()
 
 void AsyncSocket::invalidState(ReadCallback* callback)
 {
+}
+
+void AsyncSocket::invalidState(ConnectCallback* callback)
+{
+}
+
+void AsyncSocket::failConnect(const AsyncSocketException& ex)
+{
+    if(connectCallback_)
+    {
+        connectCallback_->connectErr(ex);
+    }
 }
 
 } //libext
