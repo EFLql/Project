@@ -4,6 +4,7 @@
 #include <libext/asyn/EventHandler.h>
 #include <libext/asyn/EventBase.h>
 #include <libext/asyn/AsyncSocketException.h>
+#include <libext/SocketAddr.h>
 #include <memory>
 #include <string>
 
@@ -76,15 +77,19 @@ public:
             uint32_t connectTimeout) noexcept;
     void connect(ConnectCallback* callback, const std::string& ip,
             uint16_t port, uint32_t connectTimeout) noexcept;
+protected:
+    void registerForConnectEvents();
 private:
-    void failConnect(const AsyncSocketException& ex);
-    void socketConnect(const SocketAddr& addr);
+    void failConnect(const char* fn, const AsyncSocketException& ex);
+    void invokeConnectSuccess();
+    int socketConnect(const SocketAddr& addr);
 private:
     uint16_t maxReadsPerEvent_;
     ReadCallback* readCallback_;
     ConnectCallback* connectCallback_;
     //underlying file descriptor
     int fd_;
+    SocketAddr addr_;
     EventBase* eventBase_;
     IOHandler ioHandler_;
     StateEnum state_;

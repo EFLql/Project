@@ -29,7 +29,7 @@ public:
                          const string& messgae,
                          int errno_copy)
         :std::runtime_error(
-            AsyncSocketException::getMessage(type, messgae, errno_copy))
+            AsyncSocketException::getMessage(type, message, errno_copy))
         ,type_(type), errno_(errno_copy)
     {
     }
@@ -41,9 +41,9 @@ public:
         std::string exMsg;
         char stext[10] = {0};
         exMsg.append("AsyncSocketException: ");
-        exMsg.append(messgae); 
+        exMsg.append(message); 
         exMsg.append(" type = ( ");
-        exMsg.append(getMessage(type));
+        exMsg.append(getExceptionTypeString(type));
         if(errno_copy != 0)
         {
             stext[0] = 0;

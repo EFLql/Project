@@ -73,6 +73,8 @@ void connect(ConnectCallback* callback, const SocketAddr& addr,
                     "Create socket failed",
                      errno);
         }
+        //lql-note 下面的异常情况发生的时候需要关闭掉
+        //fd_，现在暂时没有关闭!!!
         //设置socket属性为非阻塞模式
         int flags = fcntl(fd_, F_GETFD, 0);
         if(flags < 0)
@@ -90,11 +92,18 @@ void connect(ConnectCallback* callback, const SocketAddr& addr,
                      errno);
         }
         //connect
-        socketConnect(addr);
+        if(socketConnect(addr) < 0)
+        {
+            return;//连接正在异步进行中
+        }
         
     }catch (const AsyncSocketException& ex)
     {
+        failConnect(__func__, ex);
     }
+    
+    state_ = StateEnum::ESTABLISHED;
+    invokeConnectSuccess();
 }
 
 void connect(ConnectCallback* callback, const std::string& ip,
@@ -108,7 +117,7 @@ void connect(ConnectCallback* callback, const std::string& ip,
         AsyncSocketException tex(
                 AsyncSocketException::INTERNAL_ERROR,
                 ex.what());
-        failConnect(tex);
+        failConnect(__func__, tex);
     }
 }
 
@@ -122,16 +131,30 @@ void AsyncSocket::socketConnect(const SocketAddr& addr)
     {
         if(errno == EINPROGRESS)//异步模式下连接正在进行
         {
+            registerForConnectEvents();
         }
         else
         {
             throw AsyncSocketException(
                     AsyncSocketException::INTERNAL_ERROR,
-                    "connect server failed",
+                    "connect failed(immediately)",
                     errno);
         }
     }
 
+}
+
+void AsyncSocket::registerForConnectEvents()
+{
+    assert(eventFlags_ == EventHandler::NONE);
+
+    eventFlags_ = EventHandler::WRITE;
+    if(!ioHandler_.registHandler(eventFlags_))
+    {
+        throw AsyncSocketException(
+                AsyncSocketException::INTERNAL_ERROR,
+                "failed to register AsyncSocket connect handelr");
+    }
 }
 
 void AsyncSocket::setReadCB(ReadCallback* readCB)
@@ -210,11 +233,22 @@ void AsyncSocket::invalidState(ConnectCallback* callback)
 {
 }
 
-void AsyncSocket::failConnect(const AsyncSocketException& ex)
+void AsyncSocket::failConnect(const char* fn, const AsyncSocketException& ex)
 {
+    std::cout<<"AsyncSocket (this= "<<this<<"state= "
+        <<state_<<" host= "<<addr_.getSocketAddr().Sun_addr
+        <<") failed while connecting "<<ex.what();
     if(connectCallback_)
     {
         connectCallback_->connectErr(ex);
+    }
+}
+
+void AsyncSocket::invokeConnectSuccess()
+{
+    if(connectCallback_)
+    {
+        connectCallback_->connectSucc();
     }
 }
 
