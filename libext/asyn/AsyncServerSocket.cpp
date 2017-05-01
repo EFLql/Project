@@ -52,7 +52,7 @@ void AsyncServerSocket::setupSocket(int family, int fd)
     if(setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) != 0)
     {
         //不是致命错误，只打印错误日志继续运行
-        std::cout<<"setupSocket faild to set SO_REUSEADDR on asyn socket" \
+        std::cout<<"setupSocket faild to set SO_REUSEADDR on asyn socket " \
             <<strerror(errno)<<std::endl;
     }
    
@@ -60,15 +60,15 @@ void AsyncServerSocket::setupSocket(int family, int fd)
     if(reusePort_ && 
            setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one)) != 0)
     {
-        std::cout<<"setupSocket faild to set SO_REUSEPORT on asyn socket" \ 
+        std::cout<<"setupSocket faild to set SO_REUSEPORT on asyn socket " \ 
             <<strerror(errno)<<std::endl;
     }
 
     //set keepAlive
     if(setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, 
-                keepAlive_ ? &one : &zero, sizeof(int) != 0))
+                (keepAlive_) ? &one : &zero, sizeof(int)) != 0)
     {
-        std::cout<<"setupSocket faild to set SO_KEEPALIVE on asyn socket" \ 
+        std::cout<<"setupSocket faild to set SO_KEEPALIVE on asyn socket " \ 
             <<strerror(errno)<<std::endl;
     }
 #ifndef TCP_NOPUSH

@@ -21,6 +21,13 @@ public:
         //而不需要在外面释放
         virtual void getReadBuff(void** bufReturn, size_t* lenRetrun) = 0;
         virtual void readDataAvailable(size_t len) = 0; 
+        virtual void readEOF() = 0;
+    };
+
+    class WriteCallback
+    {
+    public:
+        virtual ~WriteCallback() = default;
     };
     //将整个对象指针注册到该类，是由于该对象指针包含多个
     //回调函数，所以不是设置单独的回调函数，而是注册对象

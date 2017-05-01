@@ -2,6 +2,20 @@
 
 namespace libext
 {
+void PipelineBase::setReadBufferSetting(
+        uint64_t minAvailable,
+        uint64_t allocationSize)
+{
+    readBufferSetting_ = std::make_pair(minAvailable, 
+            allocationSize);
+}
+
+std::pair<uint64_t, uint64_t> 
+PipelineBase::getReadBufferSetting()
+{
+    return readBufferSetting_;
+}
+
 PipelineBase& PipelineBase::removeFront()
 {
     if(!ctxs_.empty())

@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <iostream>
+#include <utility>
 
 namespace libext
 {
@@ -20,6 +21,11 @@ public:
     virtual void fireClose() = 0;
 
     virtual PipelineBase* getPipeline() = 0;
+    virtual void setReadBufferSetting(
+            uint64_t minAvailable,
+            uint64_t allocationSize) = 0;
+    virtual std::pair<uint64_t, uint64_t> 
+        getReadBufferSetting() = 0;
 };
 
 template <class In>

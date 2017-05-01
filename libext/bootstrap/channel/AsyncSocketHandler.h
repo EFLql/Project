@@ -28,7 +28,10 @@ public:
     {
 
     }
-
+    void readEOF() override
+    {
+    }
+    
     void readEOF(Context* ctx) override
     {
     }
@@ -40,6 +43,12 @@ public:
     //ReadCallback override
     void getReadBuff(void** bufReturn, size_t* lenRetrun) override
     {
+        const auto readBufferSetting = getContext()->getReadBufferSetting();
+        const auto ret = buffQueue_.preallocate(
+               readBufferSetting.first,
+               readBufferSetting_.second);
+       *bufReturn = ret.first;
+       *lenRetrun = ret.second;
     }
 
     void readDataAvailable(size_t len) override

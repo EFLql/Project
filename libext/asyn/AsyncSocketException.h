@@ -1,5 +1,8 @@
 #pragma once
 #include <exception>
+#include <string.h>
+#include <errno.h>
+#include <stdio.h>
 
 namespace libext
 {
@@ -26,16 +29,16 @@ public:
     };
 
     AsyncSocketException(AsyncSocketExceptionType type, 
-                         const string& messgae,
-                         int errno_copy)
+                         const std::string& message,
+                         int errno_copy = 0)
         :std::runtime_error(
             AsyncSocketException::getMessage(type, message, errno_copy))
         ,type_(type), errno_(errno_copy)
     {
     }
 
-    static const std::string&& getMessage(AsyncSocketExceptionType type,
-                           const string& message,
+    static std::string getMessage(AsyncSocketExceptionType type,
+                           const std::string& message,
                            int errno_copy)
     {
         std::string exMsg;
@@ -47,14 +50,14 @@ public:
         if(errno_copy != 0)
         {
             stext[0] = 0;
-            itoa(errno_copy, stext, 10);
+            snprintf(stext, sizeof(stext), "%d", errno_copy);
             exMsg.append(" ) errno= ");
             exMsg.append(stext);
             exMsg.append(" ( ");
             exMsg.append(strerror(errno_copy));
             exMsg.append(" ) ");
         } 
-        return std::move(exMsg);
+        return exMsg;
     }
 
     static std::string getExceptionTypeString(AsyncSocketExceptionType type)
@@ -80,13 +83,13 @@ public:
         case INTERNAL_ERROR:
             return "Internal error";
         case NOT_SUPPORTED:
-            return "Not supported"
+            return "Not supported";
         case INVALID_STATE:
                 return "Invalid state";
         case SSL_ERROR:
                 return "SSL error";
         case COULD_NOT_BIND:
-                return "Could not bind"
+                return "Could not bind";
         case SASL_HANDSHAKE_TIMEOUT:
                 return "SASL handshake timeout";
         case NETWORK_ERROR:

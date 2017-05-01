@@ -7,6 +7,7 @@
 #include <memory>
 #include <vector>
 #include <type_traits>
+#include <utility>
 
 namespace libext
 {
@@ -33,6 +34,9 @@ public:
      *
      *
      */
+    void setReadBufferSetting(uint64_t minAvailable, 
+            uint64_t allocationSize);
+    std::pair<uint64_t, uint64_t> getReadBufferSetting();
     template <class H>
     PipelineBase& addBack(std::shared_ptr<H> handler);
     template <class H>
@@ -77,6 +81,8 @@ protected:
 
 private:
     PipelineManager* manager_;
+
+    std::pair<uint64_t, uint64_t> readBufferSetting_;
     
     template <class Context>
     PipelineBase& addHelper(std::shared_ptr<Context>&& ctx, bool front);//bool front是否是增加到管道最前面

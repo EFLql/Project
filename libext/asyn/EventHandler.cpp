@@ -96,8 +96,6 @@ void EventHandler::libeventCallback(int socket, int16_t event, void* arg)
     assert(pthis->event_.ev_fd == socket);
     
     pthis->handlerReady(event);
-
-    std::cout<<"libevent run"<<std::endl;
 }
 
 void EventHandler::setEventBase(EventBase* evb)

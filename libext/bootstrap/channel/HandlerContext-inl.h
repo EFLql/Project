@@ -222,6 +222,18 @@ public:
     {
         return this->pipelineRaw_;
     }
+    void setReadBufferSetting(
+            uint64_t minAvailable,
+            uint64_t allocationSize) override
+    {
+        this->pipelineRaw_->setReadBufferSetting(
+                minAvailable,
+                allocationSize);
+    }
+    std::pair<uint64_t, uint64_t> getReadBufferSetting() override
+    {
+        return this->pipelineRaw_->getReadBufferSetting();
+    }
 
     //Inboundlink override
     void read(Rin msg) override
