@@ -11,6 +11,11 @@ enum : uint16_t
     kDataInUse = 0x02,
 };
 
+enum : uint64_t
+{
+	kDefaultCombinedBufSize = 1024
+};
+
 }//nonamed namespace
 
 namespace libext
@@ -78,5 +83,83 @@ void* IOBuf::operator new(size_t size)
     new (&storage->prefix) HeapPrefix(kIOBufInUse);
     return &(storage->buf);
 }
+
+void* IOBuf::operator new(size_t /*size*/, void* ptr)
+{
+	return ptr;
+}
+
+void IOBuf::operator delete(void* ptr)
+{
+	//code for delete
+}
+
+IOBuf::IOBuf(InteralConstructor, 
+			 uintptr_t flagsAndSharedInfo, 
+			 uint8_t* buf, 
+			 uint64_t capacity, 
+			 uint8_t* data, 
+			 uint8_t length) 
+	: next_(this)
+	, prev_(this)
+	, buff_(buf)
+	, data_(data)
+	, length_(length)
+	, capacity_(capacity)
+	, flagsAndSharedInfo_(flagsAndSharedInfo)
+{
+	assert(data >= buf);
+	assert(data + length <= buf + capacity);
+}
+
+std::unique_ptr<IOBuf> IOBuf::IOBuf(CreateOp, uint64_t capacity)
+: next_(this)
+, prev_(this)
+, data_(NULL)
+, length_(0)
+, flagsAndSharedInfo_(0)
+{
+	SharedInfo* info;
+	allocExtBuffer(capacity, &buff_, &info, &capacity_);
+	setSharedInfo(info);
+	data_ = buff_;
+}
+
+std::unique_ptr<IOBuf> IOBuf::create(uint64_t capacity)
+{
+	if(capacity <= kDefaultCombinedBufSize)	
+	{
+		return createCombined(capacity);
+	}
+	return createSeparate(capacity);
+}
+
+std::unique_ptr<IOBuf> IOBuf::createCombined(uint64_t capacity)
+{
+	size_t requiredStorage = offsetof(HeapFullStorage, align) + capacity;
+	//lql-note:commet: Using jemalloc in wangle of facebook
+	//size_t mallocSize = goodMalloc(requiredStorage);
+	auto* storage = static_cast<HeapFullStorage*>(malloc(requiredStorage));
+
+	new (&storage->hs.prefix) HeapPrefix(kIOBufInUse | kDataInUse);
+	new (&storage->shared) SharedInfo(freeInternalBuf, storage);
+
+	uint8_t* bufAddr = reinterpret_cast<uint8_t*>(&storage->align);
+	uint8_t* bufEnd = reinterpret_cast<uint8_t*>(storage) + requiredStorage;
+	size_t actualCapacity = bufEnd - bufAddr;
+	unique_ptr<IOBuf> ret(new (&storage->hs.buf) IOBuf(
+		InteralConstructor(), packFlagsAndSharedInfo(0, &storage->shared),
+		bufAddr, actualCapacity, bufAddr, 0));
+
+	return ret;
+}
+
+std::unique_ptr<IOBuf> IOBuf::createSeparate(uint64_t capacity)
+{
+	return std::make_unique<IOBuf>(CREATE, capacity);
+}
+
+
+
 
 }//libext

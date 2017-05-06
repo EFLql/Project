@@ -277,23 +277,63 @@ public:
         tail->next_ = head;
         return std::unique_ptr<IOBuf>(head); 
     }
-    
-    struct SharedInfo
-    {
-        SharedInfo();
-        SharedInfo(FreeFunction fn, void* arg);
-        //当共享引用计数变为0的时候，
-        //释放掉buffer内存空间
-        FreeFunction freeFn;
-        void* userData;
-        //共享引用计数
-        std::atomic<uint32_t> refcount;
-        bool externallyShared{false};
-    };
+
+	bool isSharedOne() const
+	{
+		//没有外部共享即SharedInfo*为NULL
+		if(!sharedInfo())
+		{
+			return true;
+		}
+		
+		//SharedInfo*不为NULL
+		if(sharedInfo()->externallyShared)
+		{
+			return true;
+		}
+
+		//明确没有设置共享
+		if(!(flags() & ~kFlagMaybeShared))
+		{
+			return false;
+		}
+
+		//设置了kFlagMaybeShared标记，需要检查引用计数
+		//检查引用计数需要使用atomic操作，所以我们更喜欢
+		//开始检查kFlagMaybeShared
+		bool shared = sharedInfo()->refcount.load(std::memory_order_acquire) > 1;
+		if(!shared)
+		{
+			cleanFlags(kFlagMaybeShared);
+		}
+
+		return shared;
+	}
 
     void* operator new(size_t size);
-    void* operator new(size_t size, void* ptr);
+    void* operator new(size_t /*size*/, void* ptr);
     void operator delete(void* ptr);
+
+private:
+	//用于标识共享的标记
+	enum FlagsEnum : uintptr_t
+	{
+		kFlagFreeSharedInfo = 0x01,
+		kFlagMaybeShared = 0x02,
+		kFlagMask = kFlagFreeSharedInfo | kFlagMaybeShared
+	};
+	struct SharedInfo
+	{
+		SharedInfo();
+		SharedInfo(FreeFunction fn, void* arg);
+		//当共享引用计数变为0的时候，
+		//释放掉buffer内存空间
+		FreeFunction freeFn;
+		void* userData;
+		//共享引用计数
+		std::atomic<uint32_t> refcount;
+		bool externallyShared{false};
+	};
 
     //helper struct for use by operator new and delete
     //可以用于一次性为IOBuf对象和其buffer分配内存空间
@@ -301,7 +341,18 @@ public:
     struct HeapPrefix;
     struct HeapStorage;
     struct HeapFullStorage;
-private:
+
+	//创建一个IOBuf对象，指向外部数据
+	struct InteralConstructor{}; //防止构造函数定义冲突
+	IOBuf(InteralConstructor, uintptr_t flagsAndSharedInfo,
+		uint8_t* buf, uint64_t capacity,
+		uint8_t* data, uint8_t length);
+
+	static void allocExtBuffer(uint64_t minCapacity,
+							   uint8_t** buffReturn,
+							   SharedInfo** infoReturn,
+							   uint64_t* capacityReturn);
+
     uint8_t* buff_{NULL};//指向整个buff的起始位置
     uint8_t* data_{NULL};//指向buff区域的data起始位置
     uint64_t length_{0};//data区域的长度
@@ -309,6 +360,60 @@ private:
 
     IOBuf* next_{this};
     IOBuf* prev_{this};
+
+	//sharedInfo和共享标记都保存在这个变量里边
+	//(format: sharedInfo* | flagsEnum)
+	//其中共享标记放在最后的两位中保存
+	//所以这种结构只能在64位系统里面有效
+	//因为64位系统的字大小(word size the unit of address)位8字节
+	//即64位系统中起始地址位8的倍数，而32位系统word size位4字节
+	//故低两位可能会被sharedInfo指针的实际地址占用
+	mutable uintptr_t flagsAndSharedInfo_{0};
+	
+	static inline uintptr_t packFlagsAndSharedInfo(uintptr_t flags,
+												   SharedInfo* info)
+	{
+		uintptr_t uinfo = reinterpret_cast<uintptr_t>(info);
+		DCHECK_EQ(flags & ~kFlagMask, 0);
+		DCHECK_EQ(uinfo & kFlagMask, 0);
+
+		return uinfo | flags;
+	}
+
+	inline SharedInfo* sharedInfo() const
+	{
+		//reinterpret_cast作用是用于将一个地址或变量处于某种目的转换
+		//成为另外一种类型的值但是当实际再次使用时在将之前转换后的值
+		//再用reinterpret_cast转换回其原始类型使用
+		return reinterpret_cast<SharedInfo*>(flagsAndSharedInfo_ & ~kFlagMask);
+	}
+
+	inline void setSharedInfo(const SharedInfo* info)
+	{
+		uintptr_t uinfo = reinterpret_cast<uintptr_t>(info);
+		flagsAndSharedInfo_ = (flagsAndSharedInfo_ & kFlagMask) | uinfo;
+	}
+	
+	//被mutable修饰的变量，可以在const修饰的函数中被修改
+	inline uintptr_t flags() const
+	{
+		return flagsAndSharedInfo_ & kFlagMask;
+	}
+
+	inline void setFlags(uintptr_t flags) const
+	{
+		//检查flags需要符合flagsEnum的定义
+		//这个地方为什么不直接参数传入flagsEnum类型?
+		DCHECK_EQ(flags & ~kFlagMask, 0);
+		flagsAndSharedInfo_ |= flags;
+	}
+
+	inline void cleanFlags(uintptr_t flags) const
+	{
+		DCHECK_EQ(flags & ~kFlagMask, 0);
+		flagsAndSharedInfo_ &= ~kFlagMask;
+	}
+
 };
 
 }
