@@ -348,10 +348,15 @@ private:
 		uint8_t* buf, uint64_t capacity,
 		uint8_t* data, uint8_t length);
 
+	//根据用户传入的参数，调整应该分配的内存大小
+	size_t goodExtBufferSize(uint64_t minCapacity);
 	static void allocExtBuffer(uint64_t minCapacity,
 							   uint8_t** buffReturn,
 							   SharedInfo** infoReturn,
 							   uint64_t* capacityReturn);
+	void initExtBuffer(uint8_t* buf, size_t mallocSize,
+					   SharedInfo** infoReturn, 
+					   uint64_t* capacityReturn);
 
     uint8_t* buff_{NULL};//指向整个buff的起始位置
     uint8_t* data_{NULL};//指向buff区域的data起始位置
