@@ -36,14 +36,15 @@ template <class H>
 PipelineBase& PipelineBase::addBack(std::shared_ptr<H> handler)
 {
     typedef typename ContextType<H>::type Context;
-    return addHelper(std::make_shared<Context>(shared_from_this(), std::move(handler)), false); 
+    return addHelper(std::make_shared<Context>(shared_from_this(), 
+                std::move(handler)), false); 
 }
 
 template <class H>
 PipelineBase& PipelineBase::addBack(H&& handler)
 {
     typedef typename ContextType<H>::type Context;
-    return addBack(std::make_shared<H>(handler));
+    return addBack(std::make_shared<H>(std::forward<H>(handler)));//需要转发保留类型
 }
 
 template <class H>
@@ -204,8 +205,13 @@ void Pipeline<R, W>::finalize()
     if(!back_)
     {
         //LOG-WARN
-        std::cout<<"No outbound handler in pipeline, inbound operation will throw \
+        std::cout<<"No outbound handler in pipeline, outbound operation will throw \
             std::invalid_argument"<<std::endl;
+    }
+
+    for(auto itr = ctxs_.rbegin(); itr != ctxs_.rend(); ++ itr)
+    {
+        (*itr)->attachPipeline();
     }
 }
 

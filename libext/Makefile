@@ -1,7 +1,8 @@
 vpath %.h ./
 MACRO=DEBUGALL
 CFLAGS+= -std=gnu++1y -g -w -D$(MACRO)
-SOURCES=$(wildcard *.cpp ./bootstrap/*.cpp ./bootstrap/channel/*.cpp ./bootstrap/acceptor/*.cpp ./asyn/*.cpp ./ThreadPool/*.cpp)
+SOURCES=$(wildcard *.cpp ./bootstrap/*.cpp ./bootstrap/channel/*.cpp \
+		./io/*.cpp ./bootstrap/acceptor/*.cpp ./asyn/*.cpp ./ThreadPool/*.cpp)
 #SOURCES=$(notdir $(src))
 OBJS :=$(patsubst %.cpp, %.o,$(SOURCES))
 SPATH=../

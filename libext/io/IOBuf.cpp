@@ -100,13 +100,13 @@ IOBuf::IOBuf(InteralConstructor,
     uint64_t capacity, 
     uint8_t* data, 
     uint8_t length) 
-    : next_(this)
-    , prev_(this)
-    , buff_(buf)
-    , data_(data)
-    , length_(length)
-    , capacity_(capacity)
-    , flagsAndSharedInfo_(flagsAndSharedInfo)
+: next_(this)
+, prev_(this)
+, buff_(buf)
+, data_(data)
+, length_(length)
+, capacity_(capacity)
+, flagsAndSharedInfo_(flagsAndSharedInfo)
 {
     assert(data >= buf);
     assert(data + length <= buf + capacity);
@@ -154,17 +154,21 @@ void IOBuf::initExtBuffer(uint8_t* buf, size_t mallocSize,
     *infoReturn = sharedInfo;
 }
 
-std::unique_ptr<IOBuf> IOBuf::IOBuf(CreateOp, uint64_t capacity)
-    : next_(this)
-    , prev_(this)
-    , data_(NULL)
-    , length_(0)
-    , flagsAndSharedInfo_(0)
+IOBuf::IOBuf(CreateOp, uint64_t capacity)
+: next_(this)
+, prev_(this)
+, data_(NULL)
+, length_(0)
+, flagsAndSharedInfo_(0)
 {
     SharedInfo* info;
     allocExtBuffer(capacity, &buff_, &info, &capacity_);
     setSharedInfo(info);
     data_ = buff_;
+}
+
+IOBuf::~IOBuf()
+{
 }
 
 std::unique_ptr<IOBuf> IOBuf::create(uint64_t capacity)
@@ -189,7 +193,7 @@ std::unique_ptr<IOBuf> IOBuf::createCombined(uint64_t capacity)
     uint8_t* bufAddr = reinterpret_cast<uint8_t*>(&storage->align);
     uint8_t* bufEnd = reinterpret_cast<uint8_t*>(storage) + requiredStorage;
     size_t actualCapacity = bufEnd - bufAddr;
-    unique_ptr<IOBuf> ret(new (&storage->hs.buf) IOBuf(
+    std::unique_ptr<IOBuf> ret(new (&storage->hs.buf) IOBuf(
         InteralConstructor(), packFlagsAndSharedInfo(0, &storage->shared),
         bufAddr, actualCapacity, bufAddr, 0));
 
@@ -211,5 +215,8 @@ void IOBuf::prependChain(std::unique_ptr<IOBuf>&& iobuf)
     prev_ = otherTail;
 }
 
+void IOBuf::freeInternalBuf(void* buf, void* userData)
+{
+}
 
 }//libext

@@ -5,13 +5,14 @@
 
 namespace libext
 {
+class PipelineContext;
 template <class Context>
 class HandlerBase
 {
 public:
     virtual ~HandlerBase() = default;
-    virtual attachPipline(Context* /*ctx*/) {}
-    virtual detachPipline(Context* /*ctx*/) {}
+    virtual attachPipeline(Context* /*ctx*/) {}
+    virtual detachPipeline(Context* /*ctx*/) {}
 
     Context* getContext()
     {
@@ -23,6 +24,7 @@ public:
         return ctx_;
     }
 private:
+    friend PipelineContext;
     uint64_t attachCount_{0};
     Context* ctx_{NULL};
 };

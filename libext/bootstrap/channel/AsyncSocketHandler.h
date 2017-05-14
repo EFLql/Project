@@ -1,6 +1,7 @@
 #pragma once
 #include <libext/asyn/AsyncSocket.h>
 #include <libext/bootstrap/channel/Handler.h>
+#include <libext/io/IOBufQueue.h>
 
 namespace libext
 {
@@ -14,6 +15,8 @@ public:
         socket_(socket)
     {
     }
+    AsyncSocketHandler(AsyncSocketHandler&&) = default;
+   ~AsyncSocketHandler() = default;
     void attachReadCallback()
     {
         socket_->setReadCB(this);
@@ -46,16 +49,19 @@ public:
         const auto readBufferSetting = getContext()->getReadBufferSetting();
         const auto ret = buffQueue_.preallocate(
                readBufferSetting.first,
-               readBufferSetting_.second);
+               readBufferSetting.second);
        *bufReturn = ret.first;
        *lenRetrun = ret.second;
     }
 
     void readDataAvailable(size_t len) override
     {
+        buffQueue_.postallocate(len);
+        getContext()->fireRead(buffQueue_);
     }
 private:
     std::shared_ptr<AsyncTransport> socket_;
+    IOBufQueue buffQueue_;
 };
 
 } //libext

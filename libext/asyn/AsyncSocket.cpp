@@ -389,7 +389,7 @@ void AsyncSocket::handleRead() noexcept
         auto readResult = performRead(&buff, &bufflen, &offset);
         auto bytesRead = readResult.readReturn;
         
-        std::cout<<"this= "<<this<<" ,AsyncSocket::handleRead() got"<<
+        std::cout<<"this= "<<this<<" ,AsyncSocket::handleRead() got "<<
             bytesRead<<" bytes"<<std::endl;
 
         if(bytesRead > 0)

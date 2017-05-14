@@ -1,5 +1,11 @@
 #pragma once
+#include <libext/typedef.h>
 #include <algorithm>
+#include <atomic>
+#include <assert.h>
+#include <string.h>
+#include <glog/logging.h>
+#include <memory>
 
 namespace libext
 {
@@ -27,7 +33,7 @@ public:
     enum TakeOwnershipOp { TAKE_OWNERSHIP };
     enum CopyBufferOp { COPY_BUFFER };
 
-    typedef (*FreeFunction)(void* buff, void* userData);
+    typedef void (*FreeFunction)(void* buff, void* userData);
 
     static std::unique_ptr<IOBuf> create(uint64_t capacity);
     IOBuf(CreateOp, uint64_t capacity);
@@ -51,7 +57,7 @@ public:
             userData, freeOnErr);
     }
     IOBuf(TakeOwnershipOp op, void* buff, uint64_t capacity, 
-        FreeFunction freeFn = NULL, void* userData, bool freeOnErr = true);
+        FreeFunction freeFn = NULL, void* userData = NULL, bool freeOnErr = true);
 
     static std::unique_ptr<IOBuf> takeOwnership(void* buff, uint64_t capacity,
         uint64_t length,
@@ -59,7 +65,7 @@ public:
         void* userData = NULL,
         bool freeOnErr = true);
     IOBuf(TakeOwnershipOp op, void* buff, uint64_t capacity, uint64_t length,
-        FreeFunction freeFn = NULL, void* userData, bool freeOnErr = true);
+        FreeFunction freeFn = NULL, void* userData = NULL, bool freeOnErr = true);
 
     //创建一个IOBuf对象指向一个已经存在user-owner buffer 
     //这个函数仅仅只有在调用者提前知道创建的这个IOBuf的生命周期，
@@ -349,15 +355,15 @@ private:
         uint8_t* data, uint8_t length);
 
     //根据用户传入的参数，调整应该分配的内存大小
-    size_t goodExtBufferSize(uint64_t minCapacity);
+    static size_t goodExtBufferSize(uint64_t minCapacity);
     static void allocExtBuffer(uint64_t minCapacity,
         uint8_t** buffReturn,
         SharedInfo** infoReturn,
         uint64_t* capacityReturn);
-    void initExtBuffer(uint8_t* buf, size_t mallocSize,
+    static void initExtBuffer(uint8_t* buf, size_t mallocSize,
         SharedInfo** infoReturn, 
         uint64_t* capacityReturn);
-
+    static void freeInternalBuf(void* buf, void* userData);
     uint8_t* buff_{NULL};//指向整个buff的起始位置
     uint8_t* data_{NULL};//指向buff区域的data起始位置
     uint64_t length_{0};//data区域的长度

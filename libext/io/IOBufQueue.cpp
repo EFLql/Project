@@ -1,14 +1,11 @@
 #include <libext/io/IOBufQueue.h>
 
-using std::make_pair;
-using std::pair;
-using std::unique_ptr;
-
 namespace
 {
 const int MAX_PACK_COPY = 4096;
 
-void appendToChain(unique_ptr<IOBuf>& dst, unique_ptr<IOBuf>&& src, bool pack)
+void appendToChain(std::unique_ptr<libext::IOBuf>& dst, 
+        std::unique_ptr<libext::IOBuf>&& src, bool pack)
 {
     if(dst == NULL)
     {
@@ -16,8 +13,8 @@ void appendToChain(unique_ptr<IOBuf>& dst, unique_ptr<IOBuf>&& src, bool pack)
     }
     else
     {
-        IOBuf* tail = dst->prev();
-        if(pack)//½«ĞÂ²åÈëµÄÊı¾İ²åÈëµ½Ô­À´Á´±íµÄÎ²²¿
+        libext::IOBuf* tail = dst->prev();
+        if(pack)//å°†æ–°æ’å…¥çš„æ•°æ®æ’å…¥åˆ°åŸæ¥é“¾è¡¨çš„å°¾éƒ¨
         {
             size_t copyRemaining = MAX_PACK_COPY;
             uint64_t n;
@@ -42,16 +39,42 @@ void appendToChain(unique_ptr<IOBuf>& dst, unique_ptr<IOBuf>&& src, bool pack)
 
 namespace libext
 {
-pair<void*, uint64_t>
-    IOBufQueue::preallocateSlow(uint64_t min, 
-    uint64_t newAlocationSize, 
-    uint64_t max)
+
+IOBufQueue::IOBufQueue()
+: chainLength_(0)
 {
-    unique_ptr<IOBuf> newBuf(IOBuf::create(std::max(min, newAlocationSize)));
-    //²åÈëµ½Á´±íÎ²²¿
+
+}
+
+IOBufQueue::IOBufQueue(IOBufQueue&& other) noexcept
+: chainLength_(other.chainLength_)
+, head_(std::move(other.head_))
+{
+    other.chainLength_ = 0;
+}
+
+IOBufQueue& IOBufQueue::operator=(IOBufQueue&& other)
+{
+    if(&other != this)
+    {
+        chainLength_ = other.chainLength_;
+        head_ = std::move(other.head_);
+        other.chainLength_ = 0;
+    }
+    return *this;
+}
+
+std::pair<void*, uint64_t>
+IOBufQueue::preallocateSlow(uint64_t min,
+            uint64_t newAlocationSize, uint64_t max)
+{
+    std::unique_ptr<IOBuf> newBuf(IOBuf::create(std::max(min, newAlocationSize)));
+    //æ’å…¥åˆ°é“¾è¡¨å°¾éƒ¨
     appendToChain(head_, std::move(newBuf), false);
     IOBuf* last = head_->prev();
-    return make_pair(last->writeableTail(), last->tailroom());
+    return std::make_pair(last->writeableTail(),
+            std::min(max, last->tailroom()));
 }
+
 
 }

@@ -20,7 +20,18 @@ public:
     virtual void detachPipeline() = 0;
 
     //attachContext...
-
+    template <class H, class HandlerContext>
+    void attachContext(H* handler, HandlerContext* ctx)
+    {
+        if(++handler->attachCount_ == 1)
+        {
+            handler->ctx_ = ctx;
+        }
+        else
+        {
+            handler->ctx_ = NULL;
+        }
+    }
     virtual void setNextIn(PipelineContext* ctx) = 0;
     virtual void setNextOut(PipelineContext* ctx) = 0;
 
@@ -68,9 +79,20 @@ public:
 
     void attachPipeline() override
     {
+        if(!attached_)
+        {
+            this->attachContext(handler_.get(), impl_);
+            handler_->attachPipeline(impl_);
+            attached_ = true;
+        }
     }
     void detachPipeline() override
     {
+        if(attached_)
+        {
+            handler_->detachPipeline(impl_);
+            attached_ = false;
+        }
     }
     void setNextIn(PipelineContext* ctx)
     {
@@ -123,6 +145,8 @@ protected:
 
     InboundLink<typename H::rout>* nextIn_{NULL};
     OutboundLink<typename H::wout>* nextOut_{NULL};
+private:
+    bool attached_{false};
 };
 
 template <class H>
