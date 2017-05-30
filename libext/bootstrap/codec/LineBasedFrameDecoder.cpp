@@ -2,13 +2,13 @@
 
 namespace libext
 {
-explicit LineBasedFrameDecoder::LineBasedFrameDecoder(
-    uint32_t maxLength, 
-    bool stripDelimiter, 
-    TerminatorType terminatorType)
-: maxLength_(maxLength)
-, stripDelimiter_(stripDelimiter_)
-, terminatorType_(terminatorType)
+LineBasedFrameDecoder::LineBasedFrameDecoder(
+                                            uint32_t maxLength, 
+                                            bool stripDelimiter, 
+                                            TerminatorType terminatorType)
+    : maxLength_(maxLength)
+    , stripDelimiter_(stripDelimiter_)
+    , terminatorType_(terminatorType)
 {
 }
 

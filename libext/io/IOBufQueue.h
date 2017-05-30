@@ -8,7 +8,8 @@ namespace libext
 {
 /*
 * IOBufQueue 封装(encapsulate)IObuf链表，提供一系列方便
-* 的方法以供外部从链表中插入或删除数据
+* 的方法以供外部从链表中插入或删除数据,原始的IOBuf对象只
+* 代表它本身，IOBufQueue不同它代表整个IOBuf链表
 */
 class IOBufQueue
 {
