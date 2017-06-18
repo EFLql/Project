@@ -219,4 +219,105 @@ void IOBuf::freeInternalBuf(void* buf, void* userData)
 {
 }
 
+//共享同一个底层buf内存
+std::unique_ptr<IOBuf> IOBuf::cloneOne() const
+{
+    return std::make_unique<IOBuf>(cloneOneAsValue());    
+}
+
+IOBuf IOBuf::cloneOneAsValue() const
+{
+    if(SharedInfo* info = SharedInfo())
+    {
+        setFlags(kFlagMaybeShared);
+        //用std::memory_order_acq_rel内存模型,acq_rel是一种read-modify-write操作
+        //操作结果对其他线程有内存可见性(同步)
+        info->refcount.fetch_add(1, std::memory_order_acq_rel);
+    }
+    //flagsAndSharedInfo_是一个指向共享信息的指针
+    //，所有共享IOBuf对象拥有同一个共享信息指针
+    return IOBuf(
+            InteralConstructor(),
+            flagsAndSharedInfo_,
+            buff_,
+            capacity_,
+            data_,
+            length_);
+}
+
+void IOBuf::coalesceSlow()
+{
+    DCHECK(isChained());
+    size_t newLength = 0;
+    IOBuf* end = this;
+    do
+    {
+        newLength += end.length_;
+        end = end->next();
+    } while(end != this);
+
+    coalesceAndReallocate(newLength, end);
+
+    DCHECK(!isChained());
+}
+
+void IOBuf::coalesceSlow(size_t maxLength)
+{
+}
+
+void IOBuf::coalesceAndReallocate(
+        size_t newHeadroom,
+        size_t newLength,
+        IOBuf* end,
+        size_t newTailRoom)
+{
+    uint64_t newCapacity = newHeadroom + newLength + newTailRoom;
+
+    //allocate space for new coalesce buffer
+    uint8_t* newBuf;
+    SharedInfo* newInfo;
+    uint64_t actualCapacity = 0;
+    allocExtBuffer(newCapacity, &newBuf, &newInfo, &actualCapacity);
+    
+    //copy data into the new buffer
+    uint8_t* newData = newBuf + newHeadroom;
+    uint8_t* p = newData;
+
+    IOBuf* current = this;
+    uint64_t remainning = newLength;
+    do
+    {
+        assert(current->length_ <= remainning);
+        memcpy(p, current->data_, current->length_);
+        remainning -= current->length_;
+        p += current->length_;
+        current = current->next_;
+    } while(current != end);
+    //因为条件不是以remainning为标准，所以这里需要检查
+    assert(remainning == 0);
+    
+    decrementRefCount();
+}
+
+void IOBuf::decrementRefCount()
+{
+    SharedInfo* info = SharedInfo();
+    if(!info)
+    {
+        return;
+    }
+
+    uint32_t refCount = info->refcount.fetch_sub(
+            1, std::memory_order_acq_rel);
+    if(refCount > 1)//注意：这里fetch_sub返回是作减法操作之前的值
+    {
+        return;
+    }
+
+    //free buffer
+    freeExtBuffer();
+
+     
+}
+
 }//libext

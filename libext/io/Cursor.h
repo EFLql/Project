@@ -143,6 +143,14 @@ public:
         }
         return val;
     }
+    bool isAtEnd() const
+    {
+        if(crtBuf_ == buffer_->prev() && length() == 0)
+        {
+            return true;
+        }
+        return false;
+    }
 
 protected:
     bool tryAdvanceBuffer()
@@ -229,3 +237,20 @@ private:
 };
 
 } //detail
+
+namespace libext
+{
+//只有可读的权限
+class Cursor : public detail::CursorBase<Cursor, const libext::IOBuf>
+{
+public:
+    explicit Cursor(libext::IOBuf* buf)
+        : detail::CursorBase<Cursor, const libext::IOBuf>(buf) {}
+
+    template <class OtherDerived, class OtherBuf>
+    explicit Cursor(const detail::CursorBase<OtherDerived, OtherBuf>& cursor)
+        : detail::CursorBase<Cursor, const libext::IOBuf>(cursor) {}
+};
+
+
+} //libext

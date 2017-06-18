@@ -46,6 +46,21 @@ public:
     //moveable
     IOBufQueue(IOBufQueue&&) noexcept;
     IOBufQueue& operator=(IOBufQueue&&);
+
+    void trimStart(size_t amount);
+    std::unique_ptr<IOBuf> split(size_t n);
+
+    std::unique_ptr<IOBuf> move()
+    {
+        chainLength_ = 0;
+        return std::move(head_);
+    }
+
+    const IOBuf* front() const
+    {
+        return head_.get();
+    }
+
 private:
     //Not copyable
     IOBufQueue(const IOBufQueue&) = delete;

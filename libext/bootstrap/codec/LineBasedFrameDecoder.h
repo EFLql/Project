@@ -10,8 +10,8 @@ public:
     enum class TerminatorType
     {
         BOTH,
-        NEWLINE,
-        CARRIGENEWLINE,
+        NEWLINE, // new line /n
+        CARRIAGENEWLINE, // Carriage return + new line /r/n
     };
     explicit LineBasedFrameDecoder(
         uint32_t maxLength = UINT_MAX,
