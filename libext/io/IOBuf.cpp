@@ -1,5 +1,6 @@
 #include <libext/io/IOBuf.h>
 #include <cstddef>
+#include <iostream>
 
 namespace
 {
@@ -50,7 +51,7 @@ struct IOBuf::HeapFullStorage
         "IOBuf may not grow over 56 bytes!");
     HeapStorage hs;
     SharedInfo shared;
-    std::max_align_t align;
+    std::max_align_t align;//最大对齐值16,保证buff_是对齐的
 };
 
 IOBuf::SharedInfo::SharedInfo()
@@ -99,7 +100,7 @@ IOBuf::IOBuf(InteralConstructor,
     uint8_t* buf, 
     uint64_t capacity, 
     uint8_t* data, 
-    uint8_t length) 
+    uint64_t length) 
 : next_(this)
 , prev_(this)
 , buff_(buf)
@@ -154,6 +155,30 @@ void IOBuf::initExtBuffer(uint8_t* buf, size_t mallocSize,
     *infoReturn = sharedInfo;
 }
 
+void IOBuf::freeExtBuffer()
+{
+    SharedInfo* info = sharedInfo();
+    DCHECK(info);
+    if(info->freeFn)
+    {
+        try
+        {
+            info->freeFn(buff_, info->userData);
+        }
+        catch(...)
+        {
+            //info->freeFn不应该抛出异常，否则
+            //就会从析构函数抛出异常
+            //同样decrementrefcount也不应该抛出异常
+            abort();
+        }
+    }
+    else
+    {
+        free(buff_);
+    }
+}
+
 IOBuf::IOBuf(CreateOp, uint64_t capacity)
 : next_(this)
 , prev_(this)
@@ -167,8 +192,46 @@ IOBuf::IOBuf(CreateOp, uint64_t capacity)
     data_ = buff_;
 }
 
+IOBuf::IOBuf(IOBuf&& other) noexcept
+: data_(other.data_)
+, buff_(other.buff_)
+, length_(other.length_)
+, capacity_(other.capacity_)
+, flagsAndSharedInfo_(other.flagsAndSharedInfo_)
+{
+    other.data_ = NULL;
+    other.buff_ = NULL;
+    other.capacity_ = 0;
+    other.length_ = 0;
+    other.flagsAndSharedInfo_ = NULL;
+}
+
+/*IOBuf& IOBuf::operator=(IOBuf&& other) noexcept
+{
+    std::cout<<"IOBuf::IOBuf move operator"<<std::endl; 
+    return *this;
+}*/
+
+/*IOBuf::IOBuf(const IOBuf& other) noexcept
+{
+    std::cout<<"IOBuf::IOBuf(const IOBuf)"<<std::endl;
+}*/
+
+/*IOBuf& IOBuf::operator=(const IOBuf& other) noexcept
+{
+    std::cout<<"operator= "<<std::endl;
+    return *this;
+}*/
+
 IOBuf::~IOBuf()
 {
+    //析构整个IOBuf链表
+    while(next_ != this)
+    {
+        //自动删除unlink的元素
+        (void)next_->unlink();
+    }
+    decrementRefCount();
 }
 
 std::unique_ptr<IOBuf> IOBuf::create(uint64_t capacity)
@@ -177,11 +240,14 @@ std::unique_ptr<IOBuf> IOBuf::create(uint64_t capacity)
     {
         return createCombined(capacity);
     }
+    //IOBuf空间和底层buffer空间分开malloc出来的
     return createSeparate(capacity);
 }
 
 std::unique_ptr<IOBuf> IOBuf::createCombined(uint64_t capacity)
 {
+    //将IOBuf对象空间和底层buffer空间通过一次malloc操作分配空间
+    //可以节省一次malloc操作
     size_t requiredStorage = offsetof(HeapFullStorage, align) + capacity;
     //lql-note:commet: Using jemalloc in wangle of facebook
     //size_t mallocSize = goodMalloc(requiredStorage);
@@ -215,8 +281,15 @@ void IOBuf::prependChain(std::unique_ptr<IOBuf>&& iobuf)
     prev_ = otherTail;
 }
 
+void IOBuf::releaseStorage(HeapStorage* storage)
+{
+    //????
+}
+
 void IOBuf::freeInternalBuf(void* buf, void* userData)
 {
+    HeapStorage* storage = static_cast<HeapStorage*>(userData);
+    releaseStorage(storage);
 }
 
 //共享同一个底层buf内存
@@ -227,7 +300,7 @@ std::unique_ptr<IOBuf> IOBuf::cloneOne() const
 
 IOBuf IOBuf::cloneOneAsValue() const
 {
-    if(SharedInfo* info = SharedInfo())
+    if(SharedInfo* info = sharedInfo())
     {
         setFlags(kFlagMaybeShared);
         //用std::memory_order_acq_rel内存模型,acq_rel是一种read-modify-write操作
@@ -248,11 +321,11 @@ IOBuf IOBuf::cloneOneAsValue() const
 void IOBuf::coalesceSlow()
 {
     DCHECK(isChained());
-    size_t newLength = 0;
+    uint64_t newLength = 0;
     IOBuf* end = this;
     do
     {
-        newLength += end.length_;
+        newLength += end->length_;
         end = end->next();
     } while(end != this);
 
@@ -297,11 +370,23 @@ void IOBuf::coalesceAndReallocate(
     assert(remainning == 0);
     
     decrementRefCount();
+
+    setFlagAndSharedInfo(0, newInfo);
+
+    capacity_ = newCapacity;
+    buff_ = newBuf;
+    length_ = newLength;
+    data_ = newData;
+
+    if(!isChained())
+    {
+        (void)separateChain(next_, current->prev_);
+    }
 }
 
 void IOBuf::decrementRefCount()
 {
-    SharedInfo* info = SharedInfo();
+    SharedInfo* info = sharedInfo();
     if(!info)
     {
         return;
@@ -317,7 +402,10 @@ void IOBuf::decrementRefCount()
     //free buffer
     freeExtBuffer();
 
-     
+    if(flags() & kFlagFreeSharedInfo)
+    {
+        delete sharedInfo();
+    }
 }
 
 }//libext

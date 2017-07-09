@@ -333,6 +333,11 @@ public:
        }
     }
     
+    IOBuf(IOBuf&& other) noexcept;
+    //IOBuf& operator=(IOBuf&& other) noexcept;
+
+    //IOBuf(const IOBuf& other) noexcept;
+    //IOBuf& operator=(const IOBuf& other) noexcept;
     
 private:
     //用于标识共享的标记
@@ -366,7 +371,7 @@ private:
     struct InteralConstructor{}; //防止构造函数定义冲突
     IOBuf(InteralConstructor, uintptr_t flagsAndSharedInfo,
         uint8_t* buf, uint64_t capacity,
-        uint8_t* data, uint8_t length);
+        uint8_t* data, uint64_t length);
 
     //根据用户传入的参数，调整应该分配的内存大小
     static size_t goodExtBufferSize(uint64_t minCapacity);
@@ -378,6 +383,7 @@ private:
         SharedInfo** infoReturn, 
         uint64_t* capacityReturn);
     static void freeInternalBuf(void* buf, void* userData);
+    static void releaseStorage(HeapStorage* storage);
 
     uint8_t* buff_{NULL};//指向整个buff的起始位置
     uint8_t* data_{NULL};//指向buff区域的data起始位置
@@ -432,6 +438,12 @@ private:
         //这个地方为什么不直接参数传入flagsEnum类型?
         DCHECK_EQ(flags & ~kFlagMask, 0);
         flagsAndSharedInfo_ |= flags;
+    }
+
+    inline void setFlagAndSharedInfo(uintptr_t flags, 
+                                     SharedInfo* info)
+    {
+       flagsAndSharedInfo_ = packFlagsAndSharedInfo(flags, info); 
     }
 
     inline void cleanFlags(uintptr_t flags) const

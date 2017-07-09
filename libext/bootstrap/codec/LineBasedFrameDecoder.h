@@ -1,6 +1,8 @@
 #pragma once
 #include <libext/bootstrap/codec/ByteToMessageDecoder.h>
 #include <string>
+#include <climits>
+#include <memory>
 
 namespace libext
 {
@@ -19,12 +21,12 @@ public:
         TerminatorType terminatorType = TerminatorType::BOTH);
  
     bool decode(Context* ctx, 
-                libext::IOBufQueue& buf, 
+                IOBufQueue& buf, 
                 std::unique_ptr<IOBuf>& result, 
-                size_t& needed);
+                size_t& needed) override;
 
 private:
-    int64_t findEndOfLine(libext::IOBufQueue& buf);
+    int64_t findEndOfLine(IOBufQueue& buf);
     void fail(Context* ctx, std::string len);
 
     uint32_t maxLength_;

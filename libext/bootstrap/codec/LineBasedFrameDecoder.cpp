@@ -1,20 +1,21 @@
-#include <libext/boostrap/codec/LineBasedFrameDecoder.h>
+#include <libext/bootstrap/codec/LineBasedFrameDecoder.h>
 #include <libext/io/Cursor.h>
+#include <stdio.h>
+#include <memory>
 
 namespace libext
 {
-LineBasedFrameDecoder::LineBasedFrameDecoder(
-                                            uint32_t maxLength, 
+LineBasedFrameDecoder::LineBasedFrameDecoder(uint32_t maxLength, 
                                             bool stripDelimiter, 
                                             TerminatorType terminatorType)
     : maxLength_(maxLength)
-    , stripDelimiter_(stripDelimiter_)
+    , stripDelimiter_(stripDelimiter)
     , terminatorType_(terminatorType)
 {
 }
 
 bool LineBasedFrameDecoder::decode(Context* ctx, 
-                                   libext::IOBufQueue& buf, 
+                                   IOBufQueue& buf, 
                                    std::unique_ptr<IOBuf>& result, 
                                    size_t& needed)
 {
@@ -26,7 +27,7 @@ bool LineBasedFrameDecoder::decode(Context* ctx,
         {
             Cursor c(buf.front());
             c += eol;
-            size_t delimLength = c.read<char>() == '\r' ? 1 : 2;
+            size_t delimLength = c.read<char>() == '\r' ? 2 : 1;
             std::unique_ptr<IOBuf> frame;
             if(stripDelimiter_)//是否跳过分隔符
             {
@@ -42,14 +43,14 @@ bool LineBasedFrameDecoder::decode(Context* ctx,
         }
         else
         {
-            auto len = buf.chainLength();
+            auto len = buf.getChainLength();
             if(len > maxLength_)//??
             {
                 discardedBytes_ = len;
                 buf.trimStart(len);
                 discarding_ = true;
                 char error[10] = {0};
-                sprintf_s(error, sizeof(error) - 1, "over %d", len);
+                sprintf(error, "over %d", len);
                 fail(ctx, std::string(error));
             }
             return false;
@@ -68,17 +69,17 @@ bool LineBasedFrameDecoder::decode(Context* ctx,
         }
         else
         {
-            discardedBytes_ = buf.chainLength();
+            discardedBytes_ = buf.getChainLength();
             buf.move();//整个buf丢弃
         }
         return false;
     }
 }
 
-int64_t LineBasedFrameDecoder::findEndOfLine(libext::IOBufQueue& buf)
+int64_t LineBasedFrameDecoder::findEndOfLine(IOBufQueue& buf)
 {
    Cursor c(buf.front());
-   for(uint32_t i = 0; i < maxLength_ && i < buf.chainLength(); i ++)
+   for(uint32_t i = 0; i < maxLength_ && i < buf.getChainLength(); i ++)
    {
        //c.read函数在读取的空间大于buf内剩余的空间会抛出异常
        //由程序员保证不要越界

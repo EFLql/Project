@@ -1,11 +1,22 @@
 //test class ServerBootstrap、ServerSocketFactory
 
+#include <gtest/gtest.h>
 #include <libext/bootstrap/ServerBootstrap.h>
 #include <libext/bootstrap/channel/AsyncSocketHandler.h>
-#include <gtest/gtest.h>
+#include <libext/bootstrap/codec/LineBasedFrameDecoder.h>
+#include <libext/bootstrap/codec/StringCodec.h>
 
 using namespace libext;//外部引用命名空间里面成员
 typedef ServerBootstrap<DefaultPipeline> TestServer;
+
+class EchoHandler : public HandlerAdapter<std::string>
+{
+public:
+    virtual void read(Context* ctx, std::string msg) override
+    {
+        std::cout<<"recv msg: "<<msg.c_str()<<std::endl;
+    }
+};
 
 class PipelineFactoryChild : public PipelineFactory<DefaultPipeline>
 {
@@ -14,6 +25,9 @@ public:
     {
         typename DefaultPipeline::Ptr pipeline = DefaultPipeline::create();
         pipeline->addBack(std::move(AsyncSocketHandler(sock)));
+        pipeline->addBack(LineBasedFrameDecoder(8192));
+        pipeline->addBack(StringCodec());
+        pipeline->addBack(EchoHandler());
         pipeline->finalize();
         return pipeline;
     }

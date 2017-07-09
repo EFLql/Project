@@ -1,7 +1,8 @@
 #pragma once
-#include <libext/io/IOBuf.h>
+//#include <libext/io/IOBuf.h>
 #include <cstring>
 #include <stdexcept>
+#include <type_traits>
 
 namespace detail
 {
@@ -55,7 +56,7 @@ public:
     //这个函数用来检查当前链表空间 
     bool canAdvance(size_t amount) const
     {
-        const IOBuf* nextBuf = crtBuf_;
+        const libext::IOBuf* nextBuf = crtBuf_;
         size_t available = nextBuf->length();
         do
         {
@@ -101,6 +102,7 @@ public:
     {
         BufType* otherBuf = other.crtBuf_;
         size_t distance = 0;
+        size_t len = 0;
         if(otherBuf != crtBuf_)
         {
             len += other.length();
@@ -128,7 +130,8 @@ public:
     }
 
     template <class T>
-    typename std::enable_if<std::is_arithmetic<T>::value, T>::type read()//std::enable_if如果条件不满足编译会报错
+    typename std::enable_if<std::is_arithmetic<T>::value, T>::type 
+    read()//std::enable_if如果条件不满足编译会报错
     {
         T val;
         if(length() >= sizeof(T))
@@ -206,7 +209,7 @@ private:
         size_t coped = 0;
         for(size_t available; (available = length()) < len; )
         {
-            coped += avaiable;
+            coped += available;
             memcpy(p, data(), available);
             if(!tryAdvanceBuffer())
             {
@@ -231,7 +234,7 @@ private:
 
 private:
     BufType* crtBuf_;//链表中当前的buf位置
-    size_t offset_;
+    size_t offset_ = 0;
 
     BufType* buffer_;//链表头
 };
@@ -241,15 +244,15 @@ private:
 namespace libext
 {
 //只有可读的权限
-class Cursor : public detail::CursorBase<Cursor, const libext::IOBuf>
+class Cursor : public detail::CursorBase<Cursor, const IOBuf>
 {
 public:
-    explicit Cursor(libext::IOBuf* buf)
-        : detail::CursorBase<Cursor, const libext::IOBuf>(buf) {}
+    explicit Cursor(const IOBuf* buf)
+        : detail::CursorBase<Cursor, const IOBuf>(buf) {}
 
     template <class OtherDerived, class OtherBuf>
     explicit Cursor(const detail::CursorBase<OtherDerived, OtherBuf>& cursor)
-        : detail::CursorBase<Cursor, const libext::IOBuf>(cursor) {}
+        : detail::CursorBase<Cursor, const IOBuf>(cursor) {}
 };
 
 
