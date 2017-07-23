@@ -241,7 +241,7 @@ void AsyncSocket::ioReady(int16_t event)
     else if(relevantEvents == EventHandler::READ_WRITE)//这种情况什么情形下发生?
     {
         //code..
-    } 
+    }
 }
 
 bool AsyncSocket::updateEventRegistration()
