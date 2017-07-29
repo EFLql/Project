@@ -214,15 +214,15 @@ public:
     //调整数据区起始位置
     void trimStart(uint64_t amount)
     {
-        DCHECK_LE(amount, headroom());
-        data_ -= amount;
-        length_ += amount;
+        DCHECK_LE(amount, length_);
+        data_ += amount;
+        length_ -= amount;
     }
     //调整数据区结束位置
     void trimEnd(uint64_t amount)
     {
-        DCHECK_LE(amount, tailroom());
-        length_ += amount;
+        DCHECK_LE(amount, length_);
+        length_ -= amount;
     }
 
     void clean()
@@ -233,6 +233,7 @@ public:
 
     bool isChained() const
     {
+        assert((next_ == this) == (prev_ == this));
         return next_ != this;
     }
     //链表长度
@@ -319,7 +320,25 @@ public:
     void* operator new(size_t size);
     void* operator new(size_t /*size*/, void* ptr);
     void operator delete(void* ptr);
+    
+    std::unique_ptr<IOBuf> cloneOne() const;
+    IOBuf cloneOneAsValue() const;
 
+    //将IOBuf链表中的底层buf都整合到一个IOBuf对象中    
+    /*Range*/void coalesce()
+    {
+       if(isChained())
+       {
+          coalesceSlow();
+       }
+    }
+    
+    IOBuf(IOBuf&& other) noexcept;
+    //IOBuf& operator=(IOBuf&& other) noexcept;
+
+    //IOBuf(const IOBuf& other) noexcept;
+    //IOBuf& operator=(const IOBuf& other) noexcept;
+    
 private:
     //用于标识共享的标记
     enum FlagsEnum : uintptr_t
@@ -352,7 +371,7 @@ private:
     struct InteralConstructor{}; //防止构造函数定义冲突
     IOBuf(InteralConstructor, uintptr_t flagsAndSharedInfo,
         uint8_t* buf, uint64_t capacity,
-        uint8_t* data, uint8_t length);
+        uint8_t* data, uint64_t length);
 
     //根据用户传入的参数，调整应该分配的内存大小
     static size_t goodExtBufferSize(uint64_t minCapacity);
@@ -364,6 +383,8 @@ private:
         SharedInfo** infoReturn, 
         uint64_t* capacityReturn);
     static void freeInternalBuf(void* buf, void* userData);
+    static void releaseStorage(HeapStorage* storage);
+
     uint8_t* buff_{NULL};//指向整个buff的起始位置
     uint8_t* data_{NULL};//指向buff区域的data起始位置
     uint64_t length_{0};//data区域的长度
@@ -419,12 +440,32 @@ private:
         flagsAndSharedInfo_ |= flags;
     }
 
+    inline void setFlagAndSharedInfo(uintptr_t flags, 
+                                     SharedInfo* info)
+    {
+       flagsAndSharedInfo_ = packFlagsAndSharedInfo(flags, info); 
+    }
+
     inline void cleanFlags(uintptr_t flags) const
     {
         DCHECK_EQ(flags & ~kFlagMask, 0);
         flagsAndSharedInfo_ &= ~kFlagMask;
     }
-
+    void decrementRefCount();
+    
+    void coalesceSlow();
+    void coalesceSlow(size_t maxLength);
+    void coalesceAndReallocate(
+            size_t newHeadroom,
+            size_t newLength,
+            IOBuf* end,
+            size_t newTailRoom);
+    void coalesceAndReallocate(size_t newLength, IOBuf* end)
+    {
+        coalesceAndReallocate(headroom(), newLength, end, end->prev_->tailroom());
+    }
+    
+    void freeExtBuffer();
 };
 
 }

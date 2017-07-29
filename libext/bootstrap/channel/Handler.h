@@ -2,6 +2,7 @@
 #include <libext/bootstrap/channel/HandlerContext.h>
 #include <libext/io/IOBufQueue.h>
 #include <libext/io/IOBuf.h>
+#include <libext/Unit.h>
 
 namespace libext
 {
@@ -11,8 +12,8 @@ class HandlerBase
 {
 public:
     virtual ~HandlerBase() = default;
-    virtual attachPipeline(Context* /*ctx*/) {}
-    virtual detachPipeline(Context* /*ctx*/) {}
+    virtual void attachPipeline(Context* /*ctx*/) {}
+    virtual void detachPipeline(Context* /*ctx*/) {}
 
     Context* getContext()
     {
@@ -73,8 +74,8 @@ public:
     static const HandlerDir dir = HandlerDir::IN;
     typedef Rin rin;
     typedef Rout rout;
-    typedef void win;
-    typedef void wout;
+    typedef Unit win;
+    typedef Unit wout;
     typedef InboundHandlerContext<Rout> Context;
 
     virtual ~InboundHandler() = default;
@@ -101,8 +102,8 @@ public:
     static const HandlerDir dir = HandlerDir::OUT;
     typedef Win win;
     typedef Wout wout;
-    typedef void rin;
-    typedef void rout;
+    typedef Unit rin;
+    typedef Unit rout;
     typedef OutboundHandlerContext<Wout> Context;
 
     virtual ~OutboundHandler() = default;
@@ -114,7 +115,7 @@ public:
     }
 };
 
-template <class R, class W>
+template <class R, class W = R>
 class HandlerAdapter : public Handler<R, R, W, W>
 {
 public:
@@ -130,13 +131,13 @@ public:
     }
 };
 
-typedef HandlerAdapter<libext::IOBufQueue&, std::unique_ptr<libext::IOBuf>>
+typedef HandlerAdapter<IOBufQueue&, std::unique_ptr<IOBuf>>
 BytesToBytesHandler;
 
-typedef InboundHandler<libext::IOBufQueue&, std::unique_ptr<libext::IOBuf>>
+typedef InboundHandler<IOBufQueue&, std::unique_ptr<IOBuf>>
 InboundBytesToBytesHandler;
 
-typedef OutboundHandler<libext::IOBufQueue&, std::unique_ptr<libext::IOBuf>>
+typedef OutboundHandler<IOBufQueue&, std::unique_ptr<IOBuf>>
 OutboundBytesToBytesHandler;
 
 } //libext

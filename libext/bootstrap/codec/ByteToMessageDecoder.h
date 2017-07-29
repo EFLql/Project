@@ -1,17 +1,20 @@
 #pragma once
+#include <libext/bootstrap/channel/Handler.h>
 #include <libext/io/IOBufQueue.h>
+#include <type_traits>
+#include <memory>
 
 namespace libext
 {
 template <class M>
-class ByteToMessageDecoder : public InboundHandler<libext::IOBufQueue&, M>
+class ByteToMessageDecoder : public InboundHandler<IOBufQueue&, M>
 {
 public:
-    typedef typename InboundHandler<libext::IOBufQueue&, M>::Context Context;
+    typedef typename InboundHandler<IOBufQueue&, M>::Context Context;
     //具体的decode接口
-    virtual bool decode(Context* ctx, libext::IOBufQueue& buf, M& result, size_t&) = 0;
-    virtual ~ByteToMessageDecoder() = defalut; 
-    void read(Context* ctx, libext::IOBufQueue& buf) override
+    virtual bool decode(Context* ctx, IOBufQueue& buf, M& result, size_t&) = 0;
+    virtual ~ByteToMessageDecoder() = default; 
+    void read(Context* ctx, IOBufQueue& buf) override
     {
         bool success = true;
         do
@@ -27,6 +30,6 @@ public:
     }
 };
 
-typedef ByteToMessageDecoder<std::unique_ptr<libext::IOBuf>> ByteToByteDecoder;
+typedef ByteToMessageDecoder<std::unique_ptr<IOBuf>> ByteToByteDecoder;
 
 }

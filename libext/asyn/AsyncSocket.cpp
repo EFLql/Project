@@ -14,6 +14,7 @@ AsyncSocket::AsyncSocket(EventBase* evb)
 , readCallback_(NULL)
 , fd_(-1)
 , ioHandler_(evb, 0, this)
+, eventFlags_(EventHandler::NONE)
 {
 }
 
@@ -23,6 +24,7 @@ AsyncSocket::AsyncSocket(EventBase* evb, int fd)
 , fd_(fd)
 , eventBase_(evb)
 , ioHandler_(evb, fd, this)
+, eventFlags_(EventHandler::NONE)
 {
     //服务端使用，在AsyncSocket构造之前
     //和客户端的连接就已经建立了，所以
@@ -36,6 +38,7 @@ AsyncSocket::AsyncSocket::AsyncSocket()
 , readCallback_(NULL)
 , state_(StateEnum::UNINT)
 , ioHandler_(NULL, 0, this)
+, eventFlags_(EventHandler::NONE)
 {
 
 }
@@ -238,7 +241,7 @@ void AsyncSocket::ioReady(int16_t event)
     else if(relevantEvents == EventHandler::READ_WRITE)//这种情况什么情形下发生?
     {
         //code..
-    } 
+    }
 }
 
 bool AsyncSocket::updateEventRegistration()
